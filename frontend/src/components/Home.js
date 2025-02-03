@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { read, utils } from "xlsx";
+import GenerateEmailsComponent from "./GenerateEmailsComponent";
 import {
   FiChevronDown,
   FiChevronUp,
@@ -17,14 +18,13 @@ import {
   FiFileText,
   FiCheckCircle,
   FiXCircle,
-  FiUploadCloud
+  FiUploadCloud,FiMessageSquare, FiZap
 } from "react-icons/fi";
 
 /* ============================================= */
 /*            Helper Components                  */
 /* ============================================= */
 
-// SectionHeader Component: Displays an icon and title for a section
 const SectionHeader = ({ icon: Icon, title }) => (
   <div className="d-flex align-items-center mb-3">
     <Icon className="text-primary me-2" size={20} />
@@ -32,7 +32,6 @@ const SectionHeader = ({ icon: Icon, title }) => (
   </div>
 );
 
-// ToggleButton Component: Expands or collapses the supplier details
 const ToggleButton = ({ expanded, onClick }) => (
   <button 
     className={`btn btn-outline-primary d-flex align-items-center ${expanded ? 'active' : ''}`}
@@ -61,6 +60,7 @@ const Home = () => {
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const navigate = useNavigate();
+  const [selectedSupplierId, setSelectedSupplierId] = useState(null);
 
   // ------------------------------
   // Data Fetching
@@ -86,13 +86,14 @@ const Home = () => {
   }, []);
 
   // ------------------------------
-  // Handlers
+  // Event Handlers
   // ------------------------------
-
-  // Navigate to supplier form for editing details
+  const handleEmailGeneration = (supplierId) => {
+    setSelectedSupplierId(supplierId);
+    setExpandedId(supplierId); // Ensure supplier section is expanded
+  };
   const handleEdit = () => navigate("/supplier-form");
 
-  // Delete a supplier after confirmation
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this supplier?")) return;
     try {
@@ -103,7 +104,6 @@ const Home = () => {
     }
   };
 
-  // Handle file selection and convert file to JSON data
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -113,9 +113,7 @@ const Home = () => {
       return;
     }
 
-    // Save the file to state so it can be used in handleUpload
     setFile(file);
-
     const reader = new FileReader();
     reader.onload = async (e) => {
       const data = new Uint8Array(e.target.result);
@@ -138,15 +136,11 @@ const Home = () => {
     reader.readAsArrayBuffer(file);
   };
 
-  // Upload the leads file to the backend
   const handleUpload = async () => {
     if (!file) return;
     const formData = new FormData();
     formData.append("file", file);
-  
-    // Log parsed data
-    console.log(fileData); 
-  
+
     try {
       await axios.post("http://127.0.0.1:8000/api/upload-leads/", formData);
       setUploadSuccess(true);
@@ -159,10 +153,9 @@ const Home = () => {
       setUploadError("Failed to upload leads. Please check the file format and try again.");
     }
   };
-  
 
   // ------------------------------
-  // Loading and Error States
+  // Render States
   // ------------------------------
   if (loading) {
     return (
@@ -193,12 +186,33 @@ const Home = () => {
   // ------------------------------
   return (
     <div className="container-lg py-5">
-      {/* Header Section */}
-      <div className="text-center mb-5">
-        <h1 className="display-5 fw-bold gradient-text mb-3">Lead Management Platform</h1>
-        <p className="lead text-muted">Manage suppliers and generated leads in one place</p>
+      {/* Header Section with Actions */}
+      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+        <div>
+          <h1 className="display-5 fw-bold text-primary mb-2">
+            Lead Management Platform
+          </h1>
+          <p className="lead text-muted">
+            Manage suppliers and generated leads efficiently
+          </p>
+        </div>
+        <div className="d-flex gap-3">
+          <Link to="/supplier-form" className="btn btn-primary d-flex align-items-center">
+            <FiEdit className="me-2" size={20} />
+            Add Supplier
+          </Link>
+          <Link to="/chat" className="btn btn-outline-primary d-flex align-items-center">
+            <FiMessageSquare className="me-2" size={20} />
+            Launch Chatbot
+          </Link>
+          <Link to="/lead-generation" className="btn btn-success d-flex align-items-center">
+            <FiZap className="me-2" size={20} />
+            LeadGeneration AI
+          </Link>
+        </div>
       </div>
 
+      {/* Main Content */}
       <div className="row g-4">
         {/* Suppliers Column */}
         <div className="col-md-6">
@@ -239,8 +253,8 @@ const Home = () => {
 
                     {expandedId === supplier.id && (
                       <div className="card-body p-4">
+                        {/* Supplier Details Content */}
                         <div className="row g-4">
-                          {/* Contact Information */}
                           <div className="col-md-6">
                             <div className="p-3 bg-light rounded-2 h-100">
                               <SectionHeader icon={FiUser} title="Contact Information" />
@@ -252,7 +266,6 @@ const Home = () => {
                             </div>
                           </div>
 
-                          {/* Product Details */}
                           <div className="col-md-6">
                             <div className="p-3 bg-light rounded-2 h-100">
                               <SectionHeader icon={FiBox} title="Product Details" />
@@ -262,7 +275,6 @@ const Home = () => {
                             </div>
                           </div>
 
-                          {/* Business Details */}
                           <div className="col-md-12">
                             <div className="p-3 bg-light rounded-2">
                               <SectionHeader icon={FiDollarSign} title="Business Details" />
@@ -284,7 +296,6 @@ const Home = () => {
                           </div>
                         </div>
                         
-                        {/* Edit Button */}
                         <div className="mt-4 text-end">
                           <button 
                             className="btn btn-outline-warning d-inline-flex align-items-center"
@@ -292,7 +303,7 @@ const Home = () => {
                           >
                             <FiEdit className="me-2" />
                             Edit Details
-                          </button>
+                          </button>                         
                         </div>
                       </div>
                     )}
@@ -312,8 +323,7 @@ const Home = () => {
               )}
             </div>
           </div>
-        </div>
-
+        </div>        
         {/* Generated Leads Column */}
         <div className="col-md-6">
           <div className="card border-0 shadow-lg rounded-3 h-100">
@@ -335,8 +345,10 @@ const Home = () => {
                 </label>
               </div>
             </div>
+            <div className="mt-4">
+            <GenerateEmailsComponent supplierId={suppliers.id} />
+            </div>
 
-            {/* Upload Status */}
             <div className="px-4 pt-3">
               {uploadError && (
                 <div className="alert alert-danger d-flex align-items-center py-2">
@@ -353,30 +365,9 @@ const Home = () => {
             </div>
 
             <div className="card-body p-4">
-              {/* Uploaded Data Table */}
               {fileData.length > 0 && (
                 <div className="mb-4">
                   <h6 className="text-muted mb-3">Preview Uploaded Data</h6>
-                  <div className="table-responsive">
-                    <table className="table table-bordered">
-                      <thead className="bg-light">
-                        <tr>
-                          <th>Company Name</th>
-                          <th>Email</th>
-                          <th>Phone</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {fileData.map((row, index) => (
-                          <tr key={index}>
-                            <td>{row[0]}</td>
-                            <td>{row[1]}</td>
-                            <td>{row[2]}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                   <button 
                     className="btn btn-success w-100 d-inline-flex justify-content-center align-items-center"
                     onClick={handleUpload}
@@ -387,7 +378,6 @@ const Home = () => {
                 </div>
               )}
 
-              {/* Leads List */}
               {generatedLeads.length > 0 ? (
                 <div className="leads-list">
                   {generatedLeads.map((lead, index) => (
@@ -432,26 +422,6 @@ const Home = () => {
               )}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="text-center mt-5">
-        <div className="d-flex gap-3 justify-content-center">
-          <Link 
-            to="/supplier-form" 
-            className="btn btn-lg btn-outline-primary d-inline-flex align-items-center"
-          >
-            <FiEdit className="me-2" />
-            Add New Supplier
-          </Link>
-          <Link 
-            to="/chat" 
-            className="btn btn-lg btn-primary d-inline-flex align-items-center"
-          >
-            Launch Chatbot
-            <FiChevronUp className="ms-2 rotate-90" />
-          </Link>
         </div>
       </div>
     </div>

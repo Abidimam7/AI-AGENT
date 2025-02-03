@@ -8,7 +8,6 @@ from django.http import JsonResponse
 from rest_framework import status
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-import json
 import google.generativeai as genai
 import logging
 from datetime import datetime
@@ -23,6 +22,10 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import api_view, parser_classes
 from .models import Lead  # Ensure that Lead model is correctly defined in your models
 import pandas as pd
+import json
+import re
+from django.core.mail import send_mail
+
 
 # Load environment variables
 load_dotenv()
@@ -140,11 +143,6 @@ class ChatbotView(APIView):
         return leads
 
 
-
-
-# Configure a logger for this module
-logger = logging.getLogger(__name__)
-
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def upload_leads(request):
@@ -216,6 +214,143 @@ def get_uploaded_leads(request):
     leads = UploadedLead.objects.all()
     serializer = UploadedLeadSerializer(leads, many=True)
     return Response(serializer.data)
+
+class AIEmailGeneratorView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """
+        Generate AI-powered sales emails for a supplier's leads.
+        Supports preview mode to review emails before sending.
+        """
+        print("DEBUG: Received POST request with data:", request.data)
+        supplier_id = request.data.get("supplier_id")
+        preview_mode = request.data.get("preview", False)  # Default: send emails
+        print("DEBUG: supplier_id =", supplier_id)
+        print("DEBUG: preview_mode =", preview_mode)
+
+        if not supplier_id:
+            print("DEBUG: No supplier_id provided")
+            return JsonResponse({"error": "Supplier ID is required"}, status=400)
+
+        try:
+            supplier = Supplier.objects.get(id=supplier_id)
+            print("DEBUG: Found supplier:", supplier)
+        except Supplier.DoesNotExist:
+            print("DEBUG: Supplier with id", supplier_id, "not found")
+            return JsonResponse({"error": "Supplier not found"}, status=404)
+
+        leads = Lead.objects.filter(supplier=supplier)
+        print("DEBUG: Number of leads found:", leads.count())
+
+        if not leads.exists():
+            print("DEBUG: No leads found for supplier", supplier)
+            return JsonResponse({"error": "No leads found for this supplier"}, status=404)
+
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            print("DEBUG: Initialized AI model: gemini-1.5-flash")
+        except Exception as e:
+            print("DEBUG: Error initializing AI model:", e)
+            return JsonResponse({"error": "Failed to initialize AI model"}, status=500)
+
+        emails_generated = []
+        for lead in leads:
+            print("DEBUG: Generating email for lead:", lead)
+
+            # Generate email content dynamically
+            prompt = f"""
+            Generate a highly professional sales email for {supplier.company_name} targeting {lead.company_name}.
+            Ensure the email is well-structured, persuasive, and includes clear formatting.
+
+            ### **Email Structure:**
+            **Subject:** {supplier.company_name} - Exclusive Business Opportunity!
+
+            **Body:**
+            Dear {lead.contact_name if hasattr(lead, 'contact_name') else 'Sir/Madam'},
+
+            I hope this email finds you well. I am {supplier.contact_name}, representing {supplier.company_name}.  
+            We specialize in {supplier.company_description}, offering high-quality solutions tailored to your business needs.
+
+            I wanted to personally reach out to explore a potential collaboration between {supplier.company_name} and {lead.company_name}.  
+            We believe our expertise and products can bring significant value to your operations.
+
+            ### **Why Choose Us?**
+            ✔ **Trusted Supplier** - {supplier.company_name} is known for {supplier.company_description}.  
+            ✔ **Competitive Pricing & Quality Assurance** - We ensure the best quality at the right price.  
+            ✔ **Client-Centric Approach** - Our team is dedicated to providing the best solutions tailored to your needs.  
+
+            I would love to discuss this further at your convenience.  
+            You can reach me directly at **{supplier.contact_phone}** or reply to this email to schedule a call.
+
+            Looking forward to the opportunity to collaborate.
+
+            Best regards,  
+            **{supplier.contact_name}**  
+            {supplier.company_name}  
+            📞 {supplier.contact_phone}  
+            📧 {supplier.contact_email}  
+            🌐 [Visit Our Website]({supplier.company_website})
+
+            ---
+
+            **Instructions for AI:**  
+            - Maintain a **formal, polished tone**.  
+            - Use **markdown formatting** for structured readability.  
+            - Ensure proper spacing, bullet points, and bold highlights for professionalism.  
+            """
+
+            print("DEBUG: Prompt for AI generation:", prompt)
+
+            
+
+            try:
+                response = model.generate_content(prompt)
+                response_text = response.text.strip()
+                print("DEBUG: AI response text:", response_text)
+            except Exception as e:
+                print("DEBUG: Error generating content with AI model:", e)
+                return JsonResponse({"error": "Failed to generate AI email"}, status=500)
+
+            # Extract subject and body using regex
+            subject_match = re.search(r"Subject:\s*(.*?)\n", response_text)
+            body_match = re.search(r"Body:\s*(.*)", response_text, re.DOTALL)
+
+            subject = subject_match.group(1) if subject_match else f"Business Collaboration with {supplier.company_name}"
+            body = body_match.group(1) if body_match else response_text  # Use full text as fallback
+
+            print("DEBUG: Parsed subject:", subject)
+            print("DEBUG: Parsed body:", body)
+
+            email_data = {
+                "lead": lead.company_name,
+                "email": lead.email,
+                "subject": subject,
+                "body": body,
+            }
+
+            # If preview mode is enabled, don't send emails—just return generated emails
+            if preview_mode:
+                emails_generated.append(email_data)
+            else:
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=body,
+                        from_email=os.getenv("EMAIL_HOST_USER"),
+                        recipient_list=[lead.email],
+                        fail_silently=False,
+                    )
+                    print("DEBUG: Email sent to:", lead.email)
+                    emails_generated.append(email_data)
+                except Exception as e:
+                    print("DEBUG: Error sending email to", lead.email, ":", e)
+                    return JsonResponse({"error": "Failed to send email"}, status=500)
+
+        message = "Emails generated successfully!" if preview_mode else "Emails sent successfully!"
+        print("DEBUG: Final message:", message)
+        return JsonResponse({"message": message, "emails": emails_generated})
+
 
 
 def homepage(request):

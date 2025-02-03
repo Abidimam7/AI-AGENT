@@ -36,16 +36,23 @@ class Supplier(models.Model):
     def __str__(self):
         return self.company_name
 
+from django.db import models
+
 class Lead(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='leads')
+    company_name = models.CharField(max_length=255, blank=False, null=False, default="Unknown Company")  # New field
     name = models.CharField(max_length=255, blank=True, null=True, default='Default Lead')
+    email = models.EmailField(blank=True, null=True)  # New field
+    phone = models.CharField(max_length=20, blank=True, null=True)  # New field
+    address = models.TextField(blank=True, null=True)  # New field
     industry = models.CharField(max_length=255, blank=True, null=True, default='Default Industry')
     location = models.CharField(max_length=255, blank=True, null=True, default='Default Location')
     status = models.CharField(max_length=100, default='New')  # New, Contacted, Closed
     date_generated = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return self.company_name
+
 
 class UploadedLead(models.Model):
     company_name = models.CharField(max_length=255)
