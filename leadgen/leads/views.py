@@ -1,39 +1,63 @@
-from rest_framework import viewsets
-from .models import Supplier, Lead, EmailCampaign
-from .serializers import SupplierSerializer, LeadSerializer, EmailCampaignSerializer
-from django.shortcuts import render
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.http import JsonResponse
-from rest_framework import status
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-import google.generativeai as genai
+# Standard Library Imports
+import os
+import re
+import json
 import logging
 from datetime import datetime
-import re
-import os
-from dotenv import load_dotenv
-import spacy  # for further NLP tasks if needed
-from rest_framework.permissions import AllowAny
-from .models import UploadedLead
-from .serializers import UploadedLeadSerializer
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.decorators import api_view, parser_classes
-from .models import Lead  # Ensure that Lead model is correctly defined in your models
+
+# Third-Party Imports
 import pandas as pd
-import json
-import re
+import spacy  # For further NLP tasks if needed
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Django Imports
+from django.shortcuts import render
+from django.http import JsonResponse
 from django.core.mail import send_mail
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 
+# Django REST Framework Imports
+from rest_framework import viewsets, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.serializers import ModelSerializer
 
-# Load environment variables
+# App-Specific Imports
+from .models import Supplier, Lead, EmailCampaign, UploadedLead, EmailLog, EmailSettings
+from .serializers import (
+    SupplierSerializer,
+    LeadSerializer,
+    EmailCampaignSerializer,
+    UploadedLeadSerializer,
+    EmailSettingsSerializer,
+    EmailLogSerializer
+)
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+ 
+
+# ------------------------------------------------------------------------------
+# Load environment variables and configure external APIs
+# ------------------------------------------------------------------------------
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------------------
+# Chatbot View (accessible without further authentication)
+# ------------------------------------------------------------------------------
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
@@ -46,7 +70,6 @@ class ChatbotView(APIView):
             {"company_name": "Tech Solutions Ltd", "address": "123 Silicon Valley", "email": "contact@techsol.com", "phone": "123-456-7890"},
             {"company_name": "Green Energy Inc.", "address": "456 Eco Street", "email": "info@greenenergy.com", "phone": "987-654-3210"},
         ]
-
         return JsonResponse({"leads": sample_leads})
 
     def post(self, request):
@@ -58,7 +81,6 @@ class ChatbotView(APIView):
         if not user_input and not active_lead:
             return JsonResponse({"error": "No input provided"}, status=400)
 
-        # Log received data for debugging
         logger.info(f"Received message: {user_input}")
         logger.info(f"Conversation Context: {conversation_context}")
         logger.info(f"Active Lead (Supplier Info): {active_lead}")
@@ -66,9 +88,7 @@ class ChatbotView(APIView):
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
 
-            # If active_lead data is provided, generate leads based on supplier information.
             if active_lead:
-                # Craft a prompt instructing the model to output a JSON array of leads.
                 prompt = (
                     f"Based on the following supplier information:\n\n"
                     f"{active_lead}\n\n"
@@ -84,13 +104,10 @@ class ChatbotView(APIView):
                 response = model.generate_content(prompt)
                 response_text = response.text.strip()
 
-                # Try to parse the response text as JSON
                 try:
                     leads = json.loads(response_text)
                 except Exception as json_err:
                     logger.error(f"Error parsing generated JSON: {json_err}")
-
-                    # Attempt to extract JSON from the response using regex.
                     json_match = re.search(r'(\[.*\])', response_text, re.DOTALL)
                     if json_match:
                         try:
@@ -105,8 +122,6 @@ class ChatbotView(APIView):
                     "leads": leads,
                     "context": conversation_context,
                 })
-
-            # Otherwise, if only user_input is provided, do a regular conversation reply.
             else:
                 response = model.generate_content(user_input)
                 return JsonResponse({
@@ -128,7 +143,6 @@ class ChatbotView(APIView):
             response_text,
             re.DOTALL
         )
-
         for match in lead_pattern:
             leads.append({
                 "company_name": match[0].strip(),
@@ -139,12 +153,14 @@ class ChatbotView(APIView):
 
         if not leads:
             return [{"error": "Failed to extract leads from AI response", "raw_response": response_text}]
-        
         return leads
 
-
+# ------------------------------------------------------------------------------
+# File Upload and Retrieval Views (accessible without further authentication)
+# ------------------------------------------------------------------------------
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
+@permission_classes([AllowAny])
 def upload_leads(request):
     if 'file' not in request.FILES:
         logger.error("No file provided in the request.")
@@ -161,13 +177,9 @@ def upload_leads(request):
             logger.info("Processing CSV file.")
             data = pd.read_csv(file)
 
-        # Debug: Log actual column names
         logger.info(f"Columns in uploaded file: {list(data.columns)}")
-
-        # Standardizing column names (remove spaces, convert to lowercase)
         data.columns = [col.strip().lower() for col in data.columns]
-
-        required_columns = ['company_name', 'email', 'phone','address']
+        required_columns = ['company_name', 'email', 'phone', 'address']
         missing_columns = [col for col in required_columns if col not in data.columns]
 
         if missing_columns:
@@ -175,22 +187,19 @@ def upload_leads(request):
             logger.error(error_msg)
             return Response({"error": error_msg, "columns_found": list(data.columns)}, status=400)
 
-        # Get or create a default supplier
         default_supplier = Supplier.objects.first()
         if not default_supplier:
             logger.error("No default supplier found.")
             return Response({"error": "No supplier available in the database"}, status=400)
 
-        # Process each row
         for index, row in data.iterrows():
             lead_data = {
                 'company_name': row['company_name'],
                 'email': row['email'],
                 'phone': row['phone'],
-                'address': row['address'],  
+                'address': row['address'],
                 'supplier': default_supplier.id,
             }
-
             lead_serializer = LeadSerializer(data=lead_data)
             if lead_serializer.is_valid():
                 lead_serializer.save()
@@ -205,29 +214,57 @@ def upload_leads(request):
         logger.exception(f"Failed to process the file: {str(e)}")
         return Response({"error": f"Failed to process the file: {str(e)}"}, status=400)
 
-@api_view(['GET'])
-def get_uploaded_leads(request):
-    # Assuming you have a model and serializer for uploaded leads
-    from .models import UploadedLead  # Ensure UploadedLead is defined in your models
-    from .serializers import UploadedLeadSerializer  # Ensure UploadedLeadSerializer is defined
 
-    leads = UploadedLead.objects.all()
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_uploaded_leads(request):
+    leads = UploadedLead.objects.filter(user=request.user)
     serializer = UploadedLeadSerializer(leads, many=True)
     return Response(serializer.data)
+    
+
+# ------------------------------------------------------------------------------
+# AI Email Generator View (accessible without further authentication)
+# ------------------------------------------------------------------------------
+
+def send_custom_email(user, subject, message, recipient_list):
+    try:
+        # Fetch the email settings for the user
+        email_settings = EmailSettings.objects.get(user=user)
+    except EmailSettings.DoesNotExist:
+        raise Exception("Email settings not configured for user.")
+    
+    # Create a MIME message
+    msg = MIMEMultipart()
+    msg['From'] = email_settings.email_host_user
+    msg['To'] = recipient_list[0]  # Assuming one recipient for simplicity
+    msg['Subject'] = subject
+    msg.attach(MIMEText(message, 'plain'))
+    
+    try:
+        # Setup SMTP connection using user's email settings
+        server = smtplib.SMTP(email_settings.email_host, email_settings.email_port)
+        if email_settings.email_use_tls:
+            server.starttls()
+        server.login(email_settings.email_host_user, email_settings.email_host_password)
+        server.sendmail(email_settings.email_host_user, recipient_list, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        raise e
 
 class AIEmailGeneratorView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        """
-        Generate AI-powered sales emails for a supplier's leads.
-        Supports preview mode to review emails before sending.
-        """
         print("DEBUG: Received POST request with data:", request.data)
         supplier_id = request.data.get("supplier_id")
-        preview_mode = request.data.get("preview", False)  # Default: send emails
+        preview_mode = request.data.get("preview", False)
+        # New: get the list of selected emails from the request (an array of email addresses)
+        send_to = request.data.get("send_to", None)
         print("DEBUG: supplier_id =", supplier_id)
         print("DEBUG: preview_mode =", preview_mode)
+        print("DEBUG: send_to =", send_to)
 
         if not supplier_id:
             print("DEBUG: No supplier_id provided")
@@ -240,7 +277,12 @@ class AIEmailGeneratorView(APIView):
             print("DEBUG: Supplier with id", supplier_id, "not found")
             return JsonResponse({"error": "Supplier not found"}, status=404)
 
+        # Get all leads for the supplier
         leads = Lead.objects.filter(supplier=supplier)
+        # If 'send_to' is provided, filter the leads to only those whose email is in send_to.
+        if send_to:
+            leads = leads.filter(email__in=send_to)
+        
         print("DEBUG: Number of leads found:", leads.count())
 
         if not leads.exists():
@@ -257,8 +299,6 @@ class AIEmailGeneratorView(APIView):
         emails_generated = []
         for lead in leads:
             print("DEBUG: Generating email for lead:", lead)
-
-            # Generate email content dynamically
             prompt = f"""
             Generate a highly professional sales email for {supplier.company_name} targeting {lead.company_name}.
             Ensure the email is well-structured, persuasive, and includes clear formatting.
@@ -278,7 +318,7 @@ class AIEmailGeneratorView(APIView):
             ### **Why Choose Us?**
             ✔ **Trusted Supplier** - {supplier.company_name} is known for {supplier.company_description}.  
             ✔ **Competitive Pricing & Quality Assurance** - We ensure the best quality at the right price.  
-            ✔ **Client-Centric Approach** - Our team is dedicated to providing the best solutions tailored to your needs.  
+            ✔ **Client-Centric Approach** - Our team is dedicated to providing the best solutions tailored to your needs.
 
             I would love to discuss this further at your convenience.  
             You can reach me directly at **{supplier.contact_phone}** or reply to this email to schedule a call.
@@ -292,7 +332,7 @@ class AIEmailGeneratorView(APIView):
             📧 {supplier.contact_email}  
             🌐 [Visit Our Website]({supplier.company_website})
 
-            ---
+            --- 
 
             **Instructions for AI:**  
             - Maintain a **formal, polished tone**.  
@@ -302,8 +342,6 @@ class AIEmailGeneratorView(APIView):
 
             print("DEBUG: Prompt for AI generation:", prompt)
 
-            
-
             try:
                 response = model.generate_content(prompt)
                 response_text = response.text.strip()
@@ -312,12 +350,11 @@ class AIEmailGeneratorView(APIView):
                 print("DEBUG: Error generating content with AI model:", e)
                 return JsonResponse({"error": "Failed to generate AI email"}, status=500)
 
-            # Extract subject and body using regex
             subject_match = re.search(r"Subject:\s*(.*?)\n", response_text)
             body_match = re.search(r"Body:\s*(.*)", response_text, re.DOTALL)
 
             subject = subject_match.group(1) if subject_match else f"Business Collaboration with {supplier.company_name}"
-            body = body_match.group(1) if body_match else response_text  # Use full text as fallback
+            body = body_match.group(1) if body_match else response_text
 
             print("DEBUG: Parsed subject:", subject)
             print("DEBUG: Parsed body:", body)
@@ -329,44 +366,154 @@ class AIEmailGeneratorView(APIView):
                 "body": body,
             }
 
-            # If preview mode is enabled, don't send emails—just return generated emails
             if preview_mode:
                 emails_generated.append(email_data)
             else:
                 try:
-                    send_mail(
-                        subject=subject,
-                        message=body,
-                        from_email=os.getenv("EMAIL_HOST_USER"),
-                        recipient_list=[lead.email],
-                        fail_silently=False,
+                    send_custom_email(supplier.user, subject, body, [lead.email])
+                    # Create an email log record for a sent email:
+                    EmailLog.objects.create(
+                        supplier=supplier,
+                        lead=lead,
+                        status="sent",
+                        notes="Email sent successfully."
                     )
                     print("DEBUG: Email sent to:", lead.email)
                     emails_generated.append(email_data)
                 except Exception as e:
+                    EmailLog.objects.create(
+                        supplier=supplier,
+                        lead=lead,
+                        status="failed",
+                        notes=str(e)
+                    )
                     print("DEBUG: Error sending email to", lead.email, ":", e)
                     return JsonResponse({"error": "Failed to send email"}, status=500)
+
 
         message = "Emails generated successfully!" if preview_mode else "Emails sent successfully!"
         print("DEBUG: Final message:", message)
         return JsonResponse({"message": message, "emails": emails_generated})
 
 
+class EmailSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        try:
+            email_settings = EmailSettings.objects.get(user=request.user)
+            serializer = EmailSettingsSerializer(email_settings)
+            return Response(serializer.data)
+        except EmailSettings.DoesNotExist:
+            return Response({"error": "Email settings not found"}, status=404)
+
+    def post(self, request):
+        # If email settings exist for user, update them. Otherwise, create new.
+        email_settings, created = EmailSettings.objects.get_or_create(user=request.user)
+        serializer = EmailSettingsSerializer(email_settings, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Email settings updated successfully!"})
+        return Response(serializer.errors, status=400)
+
+
+class EmailLogListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Optional: Filter logs by date if a query parameter is provided
+        date_filter = request.query_params.get("date")  # expecting format 'YYYY-MM-DD'
+        logs = EmailLog.objects.filter(supplier__user=request.user).order_by("-sent_at")
+        if date_filter:
+            logs = logs.filter(sent_at__date=date_filter)
+        serializer = EmailLogSerializer(logs, many=True)
+        return Response(serializer.data)
+
+# ------------------------------------------------------------------------------
+# Homepage View
+# ------------------------------------------------------------------------------
 def homepage(request):
-    return render(request, 'leads/index.html')  # This will serve the React app's index.html
-  # This will serve the React app's index.html
+    return render(request, 'leads/index.html')
+
+# ------------------------------------------------------------------------------
+# User Authentication Views (Login & Registration)
+# ------------------------------------------------------------------------------
+class LoginView(APIView):
+    def post(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "username": user.username,
+                "token": str(refresh.access_token)
+            }, status=status.HTTP_200_OK)
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class LeadDeleteView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        lead = get_object_or_404(Lead, id=kwargs['id'], user=request.user)
+        lead.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RegisterSerializer(ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)
+
+
+class RegisterView(APIView):
+    def post(self, request):
+        print("Received data:", request.data)
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            print("User created successfully!")
+            return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+        print("Validation failed:", serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# ------------------------------------------------------------------------------
+# Model ViewSets (accessible without further authentication)
+# ------------------------------------------------------------------------------
 class SupplierViewSet(viewsets.ModelViewSet):
-    queryset = Supplier.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = SupplierSerializer
+    queryset = Supplier.objects.all()  # Add this line
+
+    def get_queryset(self):
+        return Supplier.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        print(self.request.user)  # Debug: Check if user is authenticated
+        if self.request.user.is_anonymous:
+            raise ValueError("Authenticated user required to create a supplier.")
+        serializer.save(user=self.request.user)
+
 
 class LeadViewSet(viewsets.ModelViewSet):
-    queryset = Lead.objects.all()
+    permission_classes = [AllowAny]
     serializer_class = LeadSerializer
+    queryset = Lead.objects.all()  # Add this line
+
+    def get_queryset(self):
+        return Lead.objects.filter(supplier__user=self.request.user)
+
+
 
 class EmailCampaignViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
     queryset = EmailCampaign.objects.all()
     serializer_class = EmailCampaignSerializer
-

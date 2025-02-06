@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'leads',
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -52,6 +53,16 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
 ]
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+]
+
+CSRF_COOKIE_SECURE = False  # For local dev
 CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'leadgen.urls'
@@ -140,10 +151,27 @@ LOGGING = {
         },
     },
 }
+
+from datetime import timedelta
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Token validity for 1 hour (adjust as needed)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh token validity for 7 days (adjust as needed)
+    'ROTATE_REFRESH_TOKENS': True,  # Enable token rotation for refresh tokens
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  # or another SMTP server if using different one
-EMAIL_PORT = 587  # or 465 for SSL
-EMAIL_USE_TLS = True  # Use TLS if using port 587
-EMAIL_HOST_USER = 'abidjmi3@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'gcku dhkf jvnp ncaf'  # Your email password or app password
+# EMAIL_HOST = 'smtp.gmail.com'  # or another SMTP server if using different one
+# EMAIL_PORT = 587  # or 465 for SSL
+# EMAIL_USE_TLS = True  # Use TLS if using port 587
+# EMAIL_HOST_USER = 'abidjmi3@gmail.com'  # Your email address
+# EMAIL_HOST_PASSWORD = 'gcku dhkf jvnp ncaf'  # Your email password or app password
 

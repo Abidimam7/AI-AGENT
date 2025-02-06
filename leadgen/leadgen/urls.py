@@ -16,8 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.contrib import admin
+from leads.views import RegisterView, LoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('leads.urls')),  # Include leads URLs, which now contain the homepage
+    path('api/auth/register/', RegisterView.as_view(), name='register'),
+    path('api/auth/login/', LoginView.as_view(), name='login'),
 ]

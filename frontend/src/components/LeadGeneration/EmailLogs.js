@@ -1,0 +1,158 @@
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import {
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Paper,
+  TableContainer,
+  Typography,
+  CircularProgress,
+  Alert,
+  TextField,
+  Button,
+  Box,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  TablePagination,
+} from "@mui/material";
+
+const EmailLogs = () => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [dashboard, setDashboard] = useState({ total: 0, sent: 0, failed: 0 });
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    setError("");
+    const token = localStorage.getItem("token");
+    try {
+      // Prepare query parameters
+      const params = {};
+      if (filterDate) params.date = filterDate;
+      if (filterStatus && filterStatus !== "all") params.status = filterStatus;
+
+      const response = await axios.get("http://127.0.0.1:8000/api/email-logs/", {
+        headers: { Authorization: token ? `Bearer ${token}` : "" },
+        params: params,
+      });
+      setLogs(response.data);
+
+      // Compute dashboard summary
+      const total = response.data.length;
+      const sent = response.data.filter((log) => log.status === "sent").length;
+      const failed = response.data.filter((log) => log.status === "failed").length;
+      setDashboard({ total, sent, failed });
+    } catch (err) {
+      console.error("Error fetching email logs:", err);
+      setError("Error fetching email logs.");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchLogs();
+  }, [filterDate, filterStatus]);
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate the logs
+  const paginatedLogs = logs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h5" sx={{ mb: 2 }}>Email Logs</Typography>
+      
+      {/* Dashboard Summary */}
+      <Box sx={{ mb: 2, display: "flex", gap: 3 }}>
+        <Typography variant="subtitle1">Total Emails: {dashboard.total}</Typography>
+        <Typography variant="subtitle1">Sent: {dashboard.sent}</Typography>
+        <Typography variant="subtitle1">Failed: {dashboard.failed}</Typography>
+      </Box>
+      
+      {/* Filters */}
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
+        <TextField
+          label="Filter by Date (YYYY-MM-DD)"
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+        />
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel id="status-filter-label">Status</InputLabel>
+          <Select
+            labelId="status-filter-label"
+            label="Status"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="sent">Sent</MenuItem>
+            <MenuItem value="failed">Failed</MenuItem>
+          </Select>
+        </FormControl>
+        <Button variant="contained" onClick={fetchLogs}>Filter</Button>
+      </Box>
+      
+      {loading ? (
+        <CircularProgress />
+      ) : error ? (
+        <Alert severity="error">{error}</Alert>
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Sr. No.</TableCell>
+                  <TableCell>Supplier</TableCell>
+                  <TableCell>Lead</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Sent At</TableCell>
+                  <TableCell>Notes</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedLogs.map((log, index) => (
+                  <TableRow key={log.id}>
+                    <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                    <TableCell>{log.supplier}</TableCell>
+                    <TableCell>{log.lead}</TableCell>
+                    <TableCell>{log.status}</TableCell>
+                    <TableCell>{new Date(log.sent_at).toLocaleString()}</TableCell>
+                    <TableCell>{log.notes}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={logs.length}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </Paper>
+      )}
+    </Box>
+  );
+};
+
+export default EmailLogs;

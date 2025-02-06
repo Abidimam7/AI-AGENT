@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
+from django.conf import settings  
+
 
 class Supplier(models.Model):
     company_name = models.CharField(max_length=255, default='Default Company Name')
@@ -31,6 +34,7 @@ class Supplier(models.Model):
     ideal_customer_profile = models.TextField(blank=True, null=True, default='Default ideal customer profile')
     technical_requirements = models.TextField(blank=True, null=True, default='Default technical requirements')
     unique_selling_points = models.TextField(blank=True, null=True, default='Default unique selling points')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
 
     def __str__(self):
@@ -62,6 +66,7 @@ class UploadedLead(models.Model):
     address = models.TextField(null=True, blank=True)
     source = models.CharField(max_length=50, default="Manual Upload")  # Identify source of lead
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_leads', null=True, blank=True)
 
     def __str__(self):
         return self.company_name  # Fixed this line
@@ -79,3 +84,22 @@ class EmailCampaign(models.Model):
 
 
 
+class EmailSettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    email_host = models.CharField(max_length=255, default='smtp.gmail.com')
+    email_port = models.IntegerField(default=587)
+    email_use_tls = models.BooleanField(default=True)
+    email_host_user = models.EmailField()
+    email_host_password = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.user.username}'s Email Settings"
+class EmailLog(models.Model):
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE)
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50)  # e.g., "sent" or "failed"
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.supplier.company_name} -> {self.lead.email} at {self.sent_at}"
