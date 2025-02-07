@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -161,9 +164,9 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Token validity for 1 hour (adjust as needed)
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh token validity for 7 days (adjust as needed)
-    'ROTATE_REFRESH_TOKENS': True,  # Enable token rotation for refresh tokens
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  
+    'ROTATE_REFRESH_TOKENS': True, 
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
@@ -175,3 +178,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST_USER = 'abidjmi3@gmail.com'  # Your email address
 # EMAIL_HOST_PASSWORD = 'gcku dhkf jvnp ncaf'  # Your email password or app password
 
+
+
+EMAIL_ENCRYPTION_KEY = os.getenv('EMAIL_ENCRYPTION_KEY')
+if not EMAIL_ENCRYPTION_KEY:
+    raise ValueError("EMAIL_ENCRYPTION_KEY not set in .env")
+EMAIL_ENCRYPTION_KEY = EMAIL_ENCRYPTION_KEY.encode()

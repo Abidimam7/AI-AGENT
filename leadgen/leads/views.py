@@ -229,12 +229,13 @@ def get_uploaded_leads(request):
 
 def send_custom_email(user, subject, message, recipient_list):
     try:
-        # Fetch the email settings for the user
         email_settings = EmailSettings.objects.get(user=user)
     except EmailSettings.DoesNotExist:
         raise Exception("Email settings not configured for user.")
     
-    # Create a MIME message
+    # Decrypt the stored password for SMTP login
+    decrypted_password = email_settings.get_decrypted_password()
+
     msg = MIMEMultipart()
     msg['From'] = email_settings.email_host_user
     msg['To'] = recipient_list[0]  # Assuming one recipient for simplicity
@@ -242,16 +243,16 @@ def send_custom_email(user, subject, message, recipient_list):
     msg.attach(MIMEText(message, 'plain'))
     
     try:
-        # Setup SMTP connection using user's email settings
         server = smtplib.SMTP(email_settings.email_host, email_settings.email_port)
         if email_settings.email_use_tls:
             server.starttls()
-        server.login(email_settings.email_host_user, email_settings.email_host_password)
+        server.login(email_settings.email_host_user, decrypted_password)
         server.sendmail(email_settings.email_host_user, recipient_list, msg.as_string())
         server.quit()
         return True
     except Exception as e:
         raise e
+
 
 class AIEmailGeneratorView(APIView):
     permission_classes = [AllowAny]
@@ -431,12 +432,6 @@ class EmailLogListView(APIView):
         return Response(serializer.data)
 
 # ------------------------------------------------------------------------------
-# Homepage View
-# ------------------------------------------------------------------------------
-def homepage(request):
-    return render(request, 'leads/index.html')
-
-# ------------------------------------------------------------------------------
 # User Authentication Views (Login & Registration)
 # ------------------------------------------------------------------------------
 class LoginView(APIView):
@@ -512,8 +507,14 @@ class LeadViewSet(viewsets.ModelViewSet):
         return Lead.objects.filter(supplier__user=self.request.user)
 
 
-
 class EmailCampaignViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = EmailCampaign.objects.all()
     serializer_class = EmailCampaignSerializer
+
+# ------------------------------------------------------------------------------
+# Homepage View
+# ------------------------------------------------------------------------------
+def homepage(request):
+    return render(request, 'leads/index.html')    
+

@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings  
+import os
+from cryptography.fernet import Fernet
 
 
 class Supplier(models.Model):
@@ -84,6 +86,16 @@ class EmailCampaign(models.Model):
 
 
 
+# class EmailSettings(models.Model):
+#     user = models.OneToOneField(User, on_delete=models.CASCADE)
+#     email_host = models.CharField(max_length=255, default='smtp.gmail.com')
+#     email_port = models.IntegerField(default=587)
+#     email_use_tls = models.BooleanField(default=True)
+#     email_host_user = models.EmailField()
+#     email_host_password = models.CharField(max_length=255)
+
+#     def __str__(self):
+#         return f"{self.user.username}'s Email Settings"
 class EmailSettings(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     email_host = models.CharField(max_length=255, default='smtp.gmail.com')
@@ -92,8 +104,20 @@ class EmailSettings(models.Model):
     email_host_user = models.EmailField()
     email_host_password = models.CharField(max_length=255)
 
+    def save(self, *args, **kwargs):
+        # Encrypt the email_host_password if it's not already encrypted
+        if self.email_host_password and not self.email_host_password.startswith("gAAAA"):
+            f = Fernet(settings.EMAIL_ENCRYPTION_KEY)
+            self.email_host_password = f.encrypt(self.email_host_password.encode()).decode()
+        super().save(*args, **kwargs)
+
+    def get_decrypted_password(self):
+        f = Fernet(settings.EMAIL_ENCRYPTION_KEY)
+        return f.decrypt(self.email_host_password.encode()).decode()
+
     def __str__(self):
         return f"{self.user.username}'s Email Settings"
+
 class EmailLog(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE)
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE)

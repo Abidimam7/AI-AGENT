@@ -170,7 +170,6 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     );
   };
 
-  // Send emails for the selected leads based on the preview
   const handleSendEmails = async () => {
     if (selectedLeadIndices.length === 0) {
       setError("Please select at least one lead.");
@@ -180,10 +179,18 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     setError("");
     const token = localStorage.getItem("token");
     try {
-      // Extract only the emails for the selected leads from previewEmails
-      const emailsToSend = selectedLeadIndices.map(
-        (i) => previewEmails[i].email
-      );
+      // Safely extract only the emails for the selected leads from previewEmails:
+      const emailsToSend = selectedLeadIndices
+        .map((i) => previewEmails[i])
+        .filter((item) => item !== undefined)
+        .map((item) => item.email);
+        
+      if (emailsToSend.length === 0) {
+        setError("No valid lead emails found.");
+        setSending(false);
+        return;
+      }
+      
       await axios.post(
         "http://127.0.0.1:8000/generate-emails/",
         {
@@ -203,6 +210,7 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     }
     setSending(false);
   };
+  
 
   useEffect(() => {
     if (autoPreview) handlePreviewClick();
