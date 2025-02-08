@@ -457,3 +457,15 @@
 .alert {
   transition: all 0.3s ease;
 }
+
+.home-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background-color: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}

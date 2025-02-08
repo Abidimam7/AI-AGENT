@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 # Chatbot View (accessible without further authentication)
 # ------------------------------------------------------------------------------
 class ChatbotView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """
@@ -197,7 +197,7 @@ class ChatbotView(APIView):
 # ------------------------------------------------------------------------------
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def upload_leads(request):
     if 'file' not in request.FILES:
         logger.error("No file provided in the request.")
@@ -224,10 +224,11 @@ def upload_leads(request):
             logger.error(error_msg)
             return Response({"error": error_msg, "columns_found": list(data.columns)}, status=400)
 
-        default_supplier = Supplier.objects.first()
-        if not default_supplier:
-            logger.error("No default supplier found.")
-            return Response({"error": "No supplier available in the database"}, status=400)
+        # Get the supplier for the logged-in user instead of a default supplier
+        supplier = Supplier.objects.filter(user=request.user).first()
+        if not supplier:
+            logger.error("No supplier found for the logged-in user.")
+            return Response({"error": "No supplier available for your account"}, status=400)
 
         for index, row in data.iterrows():
             lead_data = {
@@ -235,7 +236,7 @@ def upload_leads(request):
                 'email': row['email'],
                 'phone': row['phone'],
                 'address': row['address'],
-                'supplier': default_supplier.id,
+                'supplier': supplier.id,
             }
             lead_serializer = LeadSerializer(data=lead_data)
             if lead_serializer.is_valid():
@@ -252,8 +253,9 @@ def upload_leads(request):
         return Response({"error": f"Failed to process the file: {str(e)}"}, status=400)
 
 
+
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_uploaded_leads(request):
     leads = UploadedLead.objects.filter(user=request.user)
     serializer = UploadedLeadSerializer(leads, many=True)
@@ -292,7 +294,7 @@ def send_custom_email(user, subject, message, recipient_list):
 
 
 class AIEmailGeneratorView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         print("DEBUG: Received POST request with data:", request.data)
@@ -536,7 +538,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
 
 
 class LeadViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = LeadSerializer
     queryset = Lead.objects.all()  # Add this line
 
@@ -545,7 +547,7 @@ class LeadViewSet(viewsets.ModelViewSet):
 
 
 class EmailCampaignViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = EmailCampaign.objects.all()
     serializer_class = EmailCampaignSerializer
 
