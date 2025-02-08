@@ -10,8 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -71,8 +71,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'leadgen.urls'
 
-import os
-from pathlib import Path
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -99,8 +98,8 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'leads', 'frontend', 'build', 'static'),
 ]
 
-# STATIC_URL = 'static/'
-
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 WSGI_APPLICATION = 'leadgen.wsgi.application'
 
 
