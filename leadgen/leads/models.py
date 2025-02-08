@@ -85,17 +85,6 @@ class EmailCampaign(models.Model):
         return self.subject
 
 
-
-# class EmailSettings(models.Model):
-#     user = models.OneToOneField(User, on_delete=models.CASCADE)
-#     email_host = models.CharField(max_length=255, default='smtp.gmail.com')
-#     email_port = models.IntegerField(default=587)
-#     email_use_tls = models.BooleanField(default=True)
-#     email_host_user = models.EmailField()
-#     email_host_password = models.CharField(max_length=255)
-
-#     def __str__(self):
-#         return f"{self.user.username}'s Email Settings"
 class EmailSettings(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     email_host = models.CharField(max_length=255, default='smtp.gmail.com')

@@ -6,16 +6,17 @@ import ChatInput from '../../components/Chatbot/ChatInput';
 import { createBotMessage, processBotResponse } from '../../components/Chatbot/chatHelpers';
 import './Chatbot.css';
 
-
 const Chatbot = () => {
   const [userInput, setUserInput] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
-  const [activeLead, setActiveLead] = useState(null); // This will store supplier info for lead generation.
+  const [activeLead, setActiveLead] = useState(null);
   const [botTyping, setBotTyping] = useState(false);
   const [conversationContext, setConversationContext] = useState({});
   const [companyDetails, setCompanyDetails] = useState(null);
-  const [leads, setLeads] = useState([]); // New state to hold generated leads.
-  const [isSending, setIsSending] = useState(false); // Prevent multiple submissions
+  const [leads, setLeads] = useState([]); // Currently generated leads (shown in chat)
+  const [savedLeads, setSavedLeads] = useState([]); // Leads saved via "save" command
+  const [isSending, setIsSending] = useState(false);
+  const [awaitingExtraDetails, setAwaitingExtraDetails] = useState(false);
   const chatEndRef = useRef(null);
 
   const suggestions = [
@@ -33,32 +34,64 @@ const Chatbot = () => {
     }
   }, []);
 
-  // Function to handle regular chat messages
+  // Function to handle regular chat message submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!userInput.trim() || isSending) return; // Prevent empty and multiple submissions
     sendUserMessage(userInput);
   };
 
-  // Regular chat message sending (without lead generation)
+  // Regular chat message sending and intercepting extra details / save command
   const sendUserMessage = async (message) => {
+    // Check if user typed "save" (case-insensitive) to save generated leads
+    if (message.trim().toLowerCase() === "save" && leads.length > 0) {
+      setSavedLeads(leads);
+      addBotMessage("Leads have been saved. You can view them by clicking the 'Generated Leads' option in the sidebar.");
+      // Optionally, clear current leads from chat area:
+      setLeads([]);
+      setUserInput('');
+      return;
+    }
+
+    // If a supplier is selected and we're awaiting extra details (location, num_leads)
+    if (activeLead && awaitingExtraDetails) {
+      const parts = message.split(",");
+      if (parts.length >= 2) {
+        const location = parts[0].trim();
+        const num_leads = parts[1].trim();
+        setConversationContext(prev => ({ ...prev, location, num_leads }));
+        addBotMessage(`Received location: ${location} and number of leads: ${num_leads}. Generating leads...`);
+        setAwaitingExtraDetails(false);
+        await generateLeads(activeLead);
+      } else {
+        addBotMessage("Invalid format. Please provide details in the format: <location>,<number>");
+      }
+      return;
+    }
+
+    // Process as a regular chat message
     const userMessage = { type: 'user', message };
     setChatHistory(prev => [...prev, userMessage]);
     setUserInput('');
     setBotTyping(true);
-    setIsSending(true); // Disable input while sending
+    setIsSending(true);
+
+    const token = localStorage.getItem("token");
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/chat/', {
-        user_input: message,
-        context: conversationContext,
-        active_lead: activeLead  // This is normally null unless lead generation is triggered.
-      });
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/chat/',
+        {
+          user_input: message,
+          context: conversationContext,
+          active_lead: activeLead,
+        },
+        { headers: { Authorization: token ? `Bearer ${token}` : "" } }
+      );
 
-      // Check if the response contains leads (from supplier info)
       if (response.data?.leads) {
         setLeads(response.data.leads);
-        addBotMessage("Leads generated successfully and updated in the sidebar.");
+        addBotMessage("Leads generated successfully and updated in the sidebar. Type 'save' to confirm.");
       } else if (response.data?.message) {
         processBotResponse(response.data, setChatHistory, setConversationContext);
       }
@@ -68,28 +101,47 @@ const Chatbot = () => {
     }
 
     setBotTyping(false);
-    setIsSending(false); // Re-enable input
+    setIsSending(false);
   };
 
-  // New function to generate leads based on supplier info (from sidebar selection)
+  // Function to generate leads using supplier info and extra details (location, num_leads)
   const generateLeads = async (supplierInfo) => {
-    // Set the activeLead to the supplier info
     setActiveLead(supplierInfo);
+    // Add supplier info to chat history
+    const companyMessage = `Selected Supplier:
+Company: ${supplierInfo.company_name}
+Product: ${supplierInfo.product_name}
+Description: ${supplierInfo.product_description}`;
+    setChatHistory(prev => [...prev, { type: 'user', message: companyMessage }]);
 
-    // Optionally add a chat message indicating that lead generation has started.
-    addBotMessage("Generating leads for the selected supplier...");
+    // If extra details are not yet provided, prompt and set awaiting state.
+    if (!conversationContext.location || !conversationContext.num_leads) {
+      addBotMessage("Please provide the location and number of leads to generate, in the format: <location>,<number>");
+      setAwaitingExtraDetails(true);
+      setBotTyping(false);
+      return; // Wait for user's input
+    }
 
     setBotTyping(true);
+    const token = localStorage.getItem("token");
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/chat/', {
-        user_input: "",  // No chat text needed; supplier info is passed in active_lead.
-        context: conversationContext,
-        active_lead: supplierInfo
-      });
+      const location = conversationContext.location;
+      const num_leads = conversationContext.num_leads;
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/chat/',
+        {
+          user_input: "", // No extra message; using context parameters
+          context: conversationContext,
+          active_lead: supplierInfo,
+          location: location,
+          num_leads: num_leads,
+        },
+        { headers: { Authorization: token ? `Bearer ${token}` : "" } }
+      );
 
       if (response.data?.leads) {
         setLeads(response.data.leads);
-        addBotMessage("Leads generated successfully and updated in the sidebar.");
+        addBotMessage("Leads generated successfully and updated in the sidebar. Type 'save' to confirm.");
       } else if (response.data?.message) {
         processBotResponse(response.data, setChatHistory, setConversationContext);
       }
@@ -116,30 +168,24 @@ const Chatbot = () => {
     setChatHistory(prev => [...prev, createBotMessage(message, [])]);
   };
 
-  // Update the company selection handler to trigger lead generation.
+  // Handler when a company (supplier) is selected from the sidebar
   const handleCompanySelect = (company) => {
-    // Save the supplier info as activeLead and trigger lead generation.
+    // Trigger lead generation, which will prompt for extra details.
     generateLeads(company);
-
-    // Optionally, you may want to add this info to the chat history.
-    const companyMessage = `Selected Supplier:\nCompany: ${company.company_name}\nProduct: ${company.product_name}\nDescription: ${company.product_description}`;
-    setChatHistory(prev => [
-      ...prev,
-      { type: 'user', message: companyMessage }
-    ]);
   };
+
+  // Function to start a new chat (clear chat history)
   const handleNewChat = () => {
-    // Clear chat history or reset chat state
     setChatHistory([]);
-  };  
+  };
 
   return (
     <div className="chat-app">
       <CompanySidebar 
         onCompanySelect={handleCompanySelect} 
         initialSelected={companyDetails}
-        leads={leads}  // List of generated leads
-        onGenerateLeads={generateLeads}  // Callback to generate leads
+        leads={savedLeads.length > 0 ? savedLeads : leads}  // Show saved leads if available
+        onGenerateLeads={generateLeads}
         onNewChat={handleNewChat} 
       />
       
@@ -162,30 +208,31 @@ const Chatbot = () => {
             userInput={userInput}
             setUserInput={setUserInput}
             handleSubmit={handleSubmit}
-            isSending={isSending} // Disable input when sending
+            isSending={isSending}
           />
         </div>
       </div>
+      
+      {/* Home Button in the top-right corner */}
+      <button 
+        className="home-button" 
+        onClick={() => window.location.href = '/home'}
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          padding: '10px 20px',
+          backgroundColor: '#1976d2',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+      >
+        Home
+      </button>
     </div>
   );
-};
-
-// Typing Effect for AI responses
-const TypingEffect = ({ message }) => {
-  const [displayedMessage, setDisplayedMessage] = useState('');
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (index < message.length) {
-      const timeout = setTimeout(() => {
-        setDisplayedMessage(prev => prev + message[index]);
-        setIndex(index + 1);
-      }, 50);
-      return () => clearTimeout(timeout);
-    }
-  }, [index, message]);
-
-  return <span>{displayedMessage}</span>;
 };
 
 export default Chatbot;

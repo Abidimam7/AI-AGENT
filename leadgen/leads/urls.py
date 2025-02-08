@@ -27,5 +27,5 @@ urlpatterns = [
     path('generate-emails/', AIEmailGeneratorView.as_view(), name='generate-emails'),
     path('api/email-settings/', EmailSettingsView.as_view(), name='email-settings'),
     path('api/email-logs/', EmailLogListView.as_view(), name='email-logs'),
-    path('', views.homepage, name='homepage'),
+    # path('', views.homepage, name='homepage'),
 ]

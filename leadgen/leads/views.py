@@ -67,8 +67,18 @@ class ChatbotView(APIView):
         (Modify this to fetch leads from a database if needed.)
         """
         sample_leads = [
-            {"company_name": "Tech Solutions Ltd", "address": "123 Silicon Valley", "email": "contact@techsol.com", "phone": "123-456-7890"},
-            {"company_name": "Green Energy Inc.", "address": "456 Eco Street", "email": "info@greenenergy.com", "phone": "987-654-3210"},
+            {
+                "company_name": "Tech Solutions Ltd",
+                "email": "contact@techsol.com",
+                "phone": "123-456-7890",
+                "address": "123 Silicon Valley"
+            },
+            {
+                "company_name": "Green Energy Inc.",
+                "email": "info@greenenergy.com",
+                "phone": "987-654-3210",
+                "address": "456 Eco Street"
+            },
         ]
         return JsonResponse({"leads": sample_leads})
 
@@ -76,62 +86,88 @@ class ChatbotView(APIView):
         user_input = request.data.get("user_input", "").strip()
         conversation_context = request.data.get("context", {})
         active_lead = request.data.get("active_lead", None)  # Supplier info for lead generation
+        # New fields for location and number of leads
+        location = request.data.get("location", None)
+        num_leads = request.data.get("num_leads", None)
 
         # Ensure at least one input is provided
         if not user_input and not active_lead:
-            return JsonResponse({"error": "No input provided"}, status=400)
+            return JsonResponse({"error": "No input provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         logger.info(f"Received message: {user_input}")
         logger.info(f"Conversation Context: {conversation_context}")
         logger.info(f"Active Lead (Supplier Info): {active_lead}")
+        if location:
+            logger.info(f"Location: {location}")
+        if num_leads:
+            logger.info(f"Number of Leads: {num_leads}")
 
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            logger.info("Initialized AI model: gemini-2.0-flash")
+        except Exception as e:
+            logger.error(f"Error initializing AI model: {e}")
+            return JsonResponse({"error": "Failed to initialize AI model"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            if active_lead:
-                prompt = (
-                    f"Based on the following supplier information:\n\n"
-                    f"{active_lead}\n\n"
-                    f"Generate a JSON array of potential business leads."
-                    f"Each lead should be formatted as: "
-                    f'[{{"company_name": "Example Inc.", "address": "123 St.", "email": "example@email.com", "phone": "1234567890"}}]\n\n'
-                    f"If unable to generate structured JSON, list leads in this format:\n"
-                    f"Company: Example Inc.\nAddress: 123 St.\nEmail: example@email.com\nPhone: 1234567890\n\n"
-                    f"Provide only the required output, no extra text."
-                )
+        # If supplier info is provided, build a detailed prompt
+        if active_lead:
+            prompt = (
+                f"Based on the following supplier information:\n\n"
+                f"{active_lead}\n\n"
+            )
+            if location:
+                prompt += f"Generate leads for the location: {location}.\n\n"
+            if num_leads:
+                prompt += f"Generate {num_leads} leads.\n\n"
+            prompt += (
+                f"Generate a JSON array of potential business leads. Each lead should include the following details in the specified order:\n"
+                f"Company Name, Email, Phone, and Address.\n\n"
+                f"Each lead should be formatted as follows:\n"
+                f'[{{"company_name": "Example Inc.", "email": "example@email.com", '
+                f'"phone": "1234567890", "address": "123 St."}}]\n\n'
+                f"If unable to generate structured JSON, list leads in this format:\n"
+                f"Company: Example Inc.\n"
+                f"Email: example@email.com\n"
+                f"Phone: 1234567890\n"
+                f"Address: 123 St.\n\n"
+                f"Provide only the required output, no extra text."
+            )
 
-                logger.info(f"Generated prompt for lead generation: {prompt}")
+            logger.info(f"Generated prompt for lead generation: {prompt}")
+            try:
                 response = model.generate_content(prompt)
                 response_text = response.text.strip()
+                logger.info(f"AI response text: {response_text}")
+            except Exception as e:
+                logger.error(f"Error generating content with AI model: {e}")
+                return JsonResponse({"error": "Failed to generate AI email"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-                try:
-                    leads = json.loads(response_text)
-                except Exception as json_err:
-                    logger.error(f"Error parsing generated JSON: {json_err}")
-                    json_match = re.search(r'(\[.*\])', response_text, re.DOTALL)
-                    if json_match:
-                        try:
-                            leads = json.loads(json_match.group(1))
-                        except Exception as e:
-                            logger.error(f"Regex extraction failed: {e}")
-                            leads = self.parse_text_list(response_text)  # Fallback to list format
-                    else:
-                        leads = self.parse_text_list(response_text)  # Fallback to list format
+            try:
+                leads = json.loads(response_text)
+            except Exception as json_err:
+                logger.error(f"Error parsing generated JSON: {json_err}")
+                json_match = re.search(r'(\[.*\])', response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        leads = json.loads(json_match.group(1))
+                    except Exception as e:
+                        logger.error(f"Regex extraction failed: {e}")
+                        leads = self.parse_text_list(response_text)
+                else:
+                    leads = self.parse_text_list(response_text)
 
-                return JsonResponse({
-                    "leads": leads,
-                    "context": conversation_context,
-                })
-            else:
-                response = model.generate_content(user_input)
-                return JsonResponse({
-                    "message": response.text.strip(),
-                    "context": conversation_context,
-                })
-
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            return JsonResponse({"error": "Failed to generate response"}, status=500)
+            # Return generated leads, conversation context and a flag for save option
+            return JsonResponse({
+                "leads": leads,
+                "context": conversation_context,
+                "save_option": True
+            })
+        else:
+            response = model.generate_content(user_input)
+            return JsonResponse({
+                "message": response.text.strip(),
+                "context": conversation_context,
+            })
 
     def parse_text_list(self, response_text):
         """
@@ -146,14 +182,15 @@ class ChatbotView(APIView):
         for match in lead_pattern:
             leads.append({
                 "company_name": match[0].strip(),
-                "address": match[1].strip(),
                 "email": match[2].strip(),
                 "phone": match[3].strip(),
+                "address": match[1].strip(),
             })
 
         if not leads:
             return [{"error": "Failed to extract leads from AI response", "raw_response": response_text}]
         return leads
+
 
 # ------------------------------------------------------------------------------
 # File Upload and Retrieval Views (accessible without further authentication)
@@ -291,8 +328,8 @@ class AIEmailGeneratorView(APIView):
             return JsonResponse({"error": "No leads found for this supplier"}, status=404)
 
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            print("DEBUG: Initialized AI model: gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            print("DEBUG: Initialized AI model: gemini-2.0-flash")
         except Exception as e:
             print("DEBUG: Error initializing AI model:", e)
             return JsonResponse({"error": "Failed to initialize AI model"}, status=500)
@@ -515,6 +552,6 @@ class EmailCampaignViewSet(viewsets.ModelViewSet):
 # ------------------------------------------------------------------------------
 # Homepage View
 # ------------------------------------------------------------------------------
-def homepage(request):
-    return render(request, 'leads/index.html')    
+def index(request):
+    return render(request, 'index.html')    
 

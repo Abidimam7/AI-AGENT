@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { FiChevronRight, FiBriefcase, FiPackage, FiMessageSquare } from 'react-icons/fi';
 import axios from 'axios';
+import { Button } from '@mui/material';
 
-const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLeads, onNewChat  }) => {
+
+const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLeads, onNewChat }) => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(initialSelected);
+  const [showSavedLeads, setShowSavedLeads] = useState(false); // Toggle for saved leads
 
   useEffect(() => {
     const fetchCompanies = async () => {
+      const token = localStorage.getItem("token");
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/suppliers/');
+        const response = await axios.get('http://127.0.0.1:8000/api/suppliers/', {
+          headers: { Authorization: token ? `Bearer ${token}` : "" }
+        });
         setCompanies(response.data);
       } catch (err) {
         setError('Failed to load companies');
@@ -25,8 +31,9 @@ const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLea
   const handleClick = (company) => {
     setSelectedCompany(company);
     onCompanySelect(company);
+    // Hide saved leads when a new company is selected
+    setShowSavedLeads(false);
   };
-  
 
   const handleGenerateNewLeads = () => {
     if (selectedCompany && onGenerateLeads) {
@@ -35,7 +42,7 @@ const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLea
   };
 
   return (
-    <div className="sidebar">     
+    <div className="sidebar">
       <h3 className="sidebar-title">
         <FiBriefcase /> Your Companies
       </h3>
@@ -70,31 +77,34 @@ const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLea
       ) : (
         <div className="empty-state">No companies registered</div>
       )}
- 
-      {/* Section: Generate New Leads Button */}
-      <h3 className="sidebar-title">
-        <FiBriefcase /> Leads
-      </h3>
+
+      {/* Generate New Leads Button */}
       {selectedCompany && (
         <div className="generate-leads-section" style={{ marginTop: '20px' }}>
-          <button onClick={handleGenerateNewLeads}>
+          <Button variant="contained" color="primary" onClick={handleGenerateNewLeads}>
             Generate New Leads
-          </button>
+          </Button>
         </div>
       )}
 
-      {/* Section: Display Generated Leads */}
+      {/* Section: Toggle to display saved leads */}
       {leads && leads.length > 0 && (
         <div className="generated-leads-section" style={{ marginTop: '30px' }}>
-          <h3>Generated Leads</h3>
-          {leads.map((lead, index) => (
-            <div key={index} className="lead-item" style={{ border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
-              <p><strong>Company:</strong> {lead.company_name}</p>
-              <p><strong>Address:</strong> {lead.address}</p>
-              <p><strong>Email:</strong> {lead.email}</p>
-              <p><strong>Phone:</strong> {lead.phone}</p>
-            </div>
-          ))}
+          <h3>Saved Leads</h3>
+          <Button variant="outlined" onClick={() => setShowSavedLeads(!showSavedLeads)}>
+            {showSavedLeads ? "Hide Saved Leads" : "View Saved Leads"}
+          </Button>
+          {showSavedLeads &&
+            leads.map((lead, index) => (
+              <div key={index} className="lead-item" style={{ border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
+                <p><strong>Sr. No.:</strong> {index + 1}</p>
+                <p><strong>Company:</strong> {lead.company_name}</p>
+                <p><strong>Email:</strong> {lead.email}</p>
+                <p><strong>Phone:</strong> {lead.phone}</p>
+                <p><strong>Address:</strong> {lead.address}</p>
+              </div>
+            ))
+          }
         </div>
       )}
     </div>
