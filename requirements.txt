@@ -7,3 +7,4 @@ protobuf==5.29.3
 python-dotenv==1.0.1
 spacy==3.8.4
 django-cors-headers==4.3.1
+gunicorn==23.0.0
