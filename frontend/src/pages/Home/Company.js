@@ -111,21 +111,26 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
     }));
   };
 
-  // Save changes for a specific section; this sends only the updated fields to the API.
   const handleSaveSection = async (supplierId, section) => {
     const updatedFields = editData[supplierId][section];
     try {
+      const token = localStorage.getItem("token");
+      const headers = token
+        ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+        : {};
+  
       const response = await axios.put(
         `http://127.0.0.1:8000/api/suppliers/${supplierId}/`,
-        updatedFields
+        updatedFields,
+        { headers }
       );
-      // Update the supplier data in the global state with the response data.
+      
       setSuppliers(
         suppliers.map((supplier) =>
           supplier.id === supplierId ? { ...supplier, ...response.data } : supplier
         )
       );
-      // Exit edit mode for that section.
+      
       setEditMode((prev) => ({
         ...prev,
         [supplierId]: {
@@ -135,8 +140,10 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
       }));
     } catch (error) {
       alert("Failed to update. Please try again.");
+      console.error("Update error:", error.response ? error.response.data : error.message);
     }
   };
+  
 
   // Cancel editing a specific section
   const handleCancelEdit = (supplierId, section) => {

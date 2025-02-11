@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { read, utils } from "xlsx";
-
-// Material UI Components
 import {
   Box,
   Grid,
@@ -25,8 +23,6 @@ import {
   MenuItem,
   Checkbox,
 } from "@mui/material";
-
-// Material UI Icons
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -59,7 +55,6 @@ const Lead = ({
     });
 
 
-  // Handle file selection and parse with XLSX
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
@@ -92,7 +87,6 @@ const Lead = ({
     reader.readAsArrayBuffer(selectedFile);
   };
 
-  // Handle upload of fileData to the server
   const handleUpload = async () => {
     if (!file) return;
     const formData = new FormData();
