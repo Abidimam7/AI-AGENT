@@ -70,31 +70,45 @@ const Home = () => {
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
 
-useEffect(() => {
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-      const [suppliers, aiLeads, uploadedLeads] = await Promise.all([
-        fetchData("/suppliers/", "GET", null, headers),
-        fetchData("/leads/", "GET", null, headers),
-        fetchData("/uploaded-leads/", "GET", null, headers),
-      ]);
-
-      setSuppliers(suppliers);
-      setGeneratedLeads([...aiLeads, ...uploadedLeads]);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Failed to fetch data. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchAllData();
-}, []);
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.error("Token not found! Please login.");
+          setError("Authentication required. Please log in.");
+          return;
+        }
+  
+        const headers = { Authorization: `Bearer ${token}` };
+  
+        const [suppliers, aiLeads, uploadedLeads] = await Promise.all([
+          fetchData("/suppliers/", "GET", null, headers),
+          fetchData("/leads/", "GET", null, headers),
+          fetchData("/uploaded-leads/", "GET", null, headers),
+        ]);
+  
+        console.log("Suppliers Data:", suppliers);
+        console.log("AI Leads Data:", aiLeads);
+        console.log("Uploaded Leads Data:", uploadedLeads);
+  
+        setSuppliers(Array.isArray(suppliers) ? suppliers : []);
+        setGeneratedLeads([
+          ...(Array.isArray(aiLeads) ? aiLeads : []),
+          ...(Array.isArray(uploadedLeads) ? uploadedLeads : [])
+        ]);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError("Failed to fetch data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchAllData();
+  }, []);
+  
 
 
   // Logout handler
