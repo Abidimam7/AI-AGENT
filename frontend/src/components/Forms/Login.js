@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { FaEnvelope, FaLock } from "react-icons/fa";
-import "./Auth.css"; // Import CSS
+import "./Auth.css"; 
+import { fetchData } from "../../utils/api";  // ✅ Ye sahi hai
+
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate(); // Hook to navigate programmatically
+  const navigate = useNavigate(); 
 
   // Check for token in localStorage on component mount
   useEffect(() => {
@@ -17,31 +19,28 @@ const Login = () => {
     }
   }, [navigate]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-  
-    try {
-      const res = await fetch("http://127.0.0.1:8000/api/login/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-  
-      const data = await res.json();
-  
-      if (res.status === 200) {
-        localStorage.setItem("name", data.username);  // Store username
-        localStorage.setItem("token", data.token);    // Store token (access token)
 
-        // Redirect to home page after successful login
-        navigate("/home"); 
-      } else {
-        alert("Invalid credentials!");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
+
+
+const handleLogin = async (e) => {
+  e.preventDefault();
+
+  try {
+    const data = await fetchData("/login/", "POST", { username, password });
+
+    if (data.token) {
+      localStorage.setItem("name", data.username);
+      localStorage.setItem("token", data.token);
+      navigate("/home");
+    } else {
+      alert("Invalid credentials!");
     }
+  } catch (error) {
+    console.error("Login error:", error);
+  }
 };
+
+  
 
 
   return (

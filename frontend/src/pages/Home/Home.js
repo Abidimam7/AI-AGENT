@@ -6,6 +6,7 @@ import Lead from "./Lead";
 import GenerateEmailsComponent from "../../components/LeadGeneration/GenerateEmailsComponent";
 import EmailSettings from "../../components/LeadGeneration/EmailSettings";
 import EmailLogs from "../../components/LeadGeneration/EmailLogs";
+import { fetchData } from "../../utils/api";  // ✅ API Helper Function
 
 
 
@@ -68,31 +69,33 @@ const Home = () => {
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const [suppliersRes, aiLeadsRes, uploadedLeadsRes] = await Promise.all([
-          axios.get("http://127.0.0.1:8000/api/suppliers/", { headers }),
-          axios.get("http://127.0.0.1:8000/api/leads/", { headers }),
-          axios.get("http://127.0.0.1:8000/api/uploaded-leads/", { headers }),
-        ]);
+useEffect(() => {
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        setSuppliers(suppliersRes.data);
-        setGeneratedLeads([...aiLeadsRes.data, ...uploadedLeadsRes.data]);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError("Failed to fetch data. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      const [suppliers, aiLeads, uploadedLeads] = await Promise.all([
+        fetchData("/suppliers/", "GET", null, headers),
+        fetchData("/leads/", "GET", null, headers),
+        fetchData("/uploaded-leads/", "GET", null, headers),
+      ]);
 
-    fetchData();
-  }, []);
+      setSuppliers(suppliers);
+      setGeneratedLeads([...aiLeads, ...uploadedLeads]);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Failed to fetch data. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAllData();
+}, []);
+
 
   // Logout handler
   const handleLogout = () => {

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { FaUser, FaEnvelope, FaLock } from "react-icons/fa";
-// import "./Auth.css"; // Import CSS
+import { fetchData } from "../../utils/api";  // ✅ API Helper Function
+
 
 const Register = () => {
   const [username, setuserName] = useState("");
@@ -11,33 +12,31 @@ const Register = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-const handleRegister = async (e) => {
-  e.preventDefault();
-  if (isSubmitting) return;  // Prevent duplicate submissions
-  setIsSubmitting(true);
 
-  console.log("Registering user...");
-  try {
-    const res = await fetch("http://127.0.0.1:8000/api/register/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password }),
-    });
-
-    const data = await res.json();
-    console.log("Response:", data);
-
-    if (res.status === 201) {
-      alert("User registered successfully!");
-    } else {
-      alert("Registration failed: " + JSON.stringify(data));
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;  // Prevent duplicate submissions
+    setIsSubmitting(true);
+  
+    console.log("Registering user...");
+    try {
+      // ✅ Dynamic API Call
+      const data = await fetchData("/register/", "POST", { username, email, password });
+  
+      console.log("Response:", data);
+  
+      if (data.username) {
+        alert("User registered successfully!");
+      } else {
+        alert("Registration failed: " + JSON.stringify(data));
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    console.error("Error:", error);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
+  
 
   
 
