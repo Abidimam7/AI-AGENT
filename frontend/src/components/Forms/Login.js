@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { FaEnvelope, FaLock } from "react-icons/fa";
 import "./Auth.css"; 
-import { fetchData } from "../../utils/api";  // ✅ Ye sahi hai
-
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -19,29 +16,35 @@ const Login = () => {
     }
   }, [navigate]);
 
-
-
-
-const handleLogin = async (e) => {
-  e.preventDefault();
-
-  try {
-    const data = await fetchData("/login/", "POST", { username, password });
-
-    if (data.token) {
-      localStorage.setItem("name", data.username);
-      localStorage.setItem("token", data.token);
-      navigate("/home");
-    } else {
-      alert("Invalid credentials!");
-    }
-  } catch (error) {
-    console.error("Login error:", error);
-  }
-};
-
+  const handleLogin = async (e) => {
+    e.preventDefault();
   
+    // Build the dynamic URL using the environment variable
+    const baseUrl = process.env.REACT_APP_API_BASE_URL;
+    const loginUrl = `${baseUrl}/login/`;
+  
+    try {
+      const res = await fetch(loginUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+  
+      const data = await res.json();
+  
+      if (res.status === 200) {
+        localStorage.setItem("name", data.username);  // Store username
+        localStorage.setItem("token", data.token);      // Store token (access token)
 
+        // Redirect to home page after successful login
+        navigate("/home"); 
+      } else {
+        alert("Invalid credentials!");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+  };
 
   return (
     <div className="auth-container">

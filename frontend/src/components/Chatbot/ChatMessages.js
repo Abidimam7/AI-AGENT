@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import { Box, Avatar, Typography, Paper, Grid } from '@mui/material';
 
-const ChatMessages = ({ chatHistory, botTyping, suggestions,setUserInput, chatEndRef }) => {
+const ChatMessages = ({ chatHistory, botTyping, suggestions, setUserInput, chatEndRef }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -8,47 +9,109 @@ const ChatMessages = ({ chatHistory, botTyping, suggestions,setUserInput, chatEn
   }, [chatHistory, botTyping]);
 
   return (
-    <div className="chat-messages">
+    <Box sx={{ p: 2, overflowY: 'auto', flexGrow: 1 }}>
       {chatHistory.length === 0 ? (
-        <div className="empty-state">
-          <div className="suggestions-grid">
+        <Box sx={{ textAlign: 'center', mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Suggestions
+          </Typography>
+          <Grid container spacing={2} justifyContent="center">
             {suggestions.map((suggestion, index) => (
-              <div 
-                key={index}
-                className="suggestion-card"
-                onClick={() => setUserInput(suggestion)}
-              >
-                {suggestion}
-              </div>
+              <Grid item key={index}>
+                <Paper
+                  sx={{
+                    p: 1,
+                    cursor: 'pointer',
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                  }}
+                  onClick={() => setUserInput(suggestion)}
+                >
+                  <Typography variant="body2">{suggestion}</Typography>
+                </Paper>
+              </Grid>
             ))}
-          </div>
-        </div>
+          </Grid>
+        </Box>
       ) : (
         chatHistory.map((msg, idx) => (
-          <div key={idx} className={`message ${msg.type}`}>
+          <Box
+            key={idx}
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              mb: 2,
+              flexDirection: msg.type === 'user' ? 'row-reverse' : 'row',
+            }}
+          >
             {msg.type === 'bot' && (
-              <div className="avatar">
-                <div className="bot-icon">AI</div>
-              </div>
+              <Avatar sx={{ bgcolor: 'secondary.main', mr: 1 }}>AI</Avatar>
             )}
-            <div className="message-content">{msg.message}</div>
-          </div>
+            <Paper
+              sx={{
+                p: 1.5,
+                maxWidth: '80%',
+                bgcolor: msg.type === 'user' ? 'primary.light' : 'grey.100',
+              }}
+            >
+              <Typography variant="body1">{msg.message}</Typography>
+            </Paper>
+          </Box>
         ))
       )}
+
       {botTyping && (
-        <div className="message bot typing">
-          <div className="avatar">
-            <div className="bot-icon">AI</div>
-          </div>
-          <div className="typing-indicator">
-            <div className="dot"></div>
-            <div className="dot"></div>
-            <div className="dot"></div>
-          </div>
-        </div>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            mb: 2,
+          }}
+        >
+          <Avatar sx={{ bgcolor: 'secondary.main', mr: 1 }}>AI</Avatar>
+          <Paper
+            sx={{
+              p: 1.5,
+              maxWidth: '80%',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  bgcolor: 'grey.500',
+                  borderRadius: '50%',
+                  animation: 'blink 1s infinite',
+                }}
+              />
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  bgcolor: 'grey.500',
+                  borderRadius: '50%',
+                  animation: 'blink 1s infinite 0.2s',
+                }}
+              />
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  bgcolor: 'grey.500',
+                  borderRadius: '50%',
+                  animation: 'blink 1s infinite 0.4s',
+                }}
+              />
+            </Box>
+          </Paper>
+        </Box>
       )}
-      <div ref={messagesEndRef} />
-    </div>
+      <Box ref={messagesEndRef} />
+    </Box>
   );
 };
 

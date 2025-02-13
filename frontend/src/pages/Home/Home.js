@@ -6,9 +6,6 @@ import Lead from "./Lead";
 import GenerateEmailsComponent from "../../components/LeadGeneration/GenerateEmailsComponent";
 import EmailSettings from "../../components/LeadGeneration/EmailSettings";
 import EmailLogs from "../../components/LeadGeneration/EmailLogs";
-import { fetchData } from "../../utils/api";  // ✅ API Helper Function
-
-
 
 // MUI Components
 import {
@@ -52,7 +49,7 @@ const Home = () => {
   const [fileData, setFileData] = useState([]);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  // activeTab can be: "company", "lead", or "emails"
+  // activeTab can be: "company", "lead", "emails", "emailLogs", or "emailSettings"
   const [activeTab, setActiveTab] = useState("company");
 
   // Profile Menu State
@@ -65,39 +62,28 @@ const Home = () => {
   const navigate = useNavigate();
   const userName = localStorage.getItem("name") || "User";
 
-  // Use theme & media query for responsiveness
+  // Responsive helpers
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
+  // Dynamic API base URL
+  const baseUrl = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
-        if (!token) {
-          console.error("Token not found! Please login.");
-          setError("Authentication required. Please log in.");
-          return;
-        }
-  
-        const headers = { Authorization: `Bearer ${token}` };
-  
-        const [suppliers, aiLeads, uploadedLeads] = await Promise.all([
-          fetchData("/suppliers/", "GET", null, headers),
-          fetchData("/leads/", "GET", null, headers),
-          fetchData("/uploaded-leads/", "GET", null, headers),
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const [suppliersRes, aiLeadsRes, uploadedLeadsRes] = await Promise.all([
+          axios.get(`${baseUrl}/suppliers/`, { headers }),
+          axios.get(`${baseUrl}/leads/`, { headers }),
+          axios.get(`${baseUrl}/uploaded-leads/`, { headers }),
         ]);
-  
-        console.log("Suppliers Data:", suppliers);
-        console.log("AI Leads Data:", aiLeads);
-        console.log("Uploaded Leads Data:", uploadedLeads);
-  
-        setSuppliers(Array.isArray(suppliers) ? suppliers : []);
-        setGeneratedLeads([
-          ...(Array.isArray(aiLeads) ? aiLeads : []),
-          ...(Array.isArray(uploadedLeads) ? uploadedLeads : [])
-        ]);
+
+        setSuppliers(suppliersRes.data);
+        setGeneratedLeads([...aiLeadsRes.data, ...uploadedLeadsRes.data]);
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Failed to fetch data. Please try again later.");
@@ -105,11 +91,9 @@ const Home = () => {
         setLoading(false);
       }
     };
-  
-    fetchAllData();
-  }, []);
-  
 
+    fetchData();
+  }, [baseUrl]);
 
   // Logout handler
   const handleLogout = () => {
@@ -117,7 +101,7 @@ const Home = () => {
     navigate("/login");
   };
 
-  // Handlers for Profile Menu
+  // Profile Menu handlers
   const handleProfileMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -130,7 +114,7 @@ const Home = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  // Define a custom light theme
+  // Custom theme for a professional look
   const customTheme = createTheme({
     palette: {
       mode: "light",
@@ -139,10 +123,13 @@ const Home = () => {
       background: { default: "#f5f5f5" },
       text: { primary: "#000" },
     },
+    typography: {
+      fontFamily: "'Roboto', sans-serif",
+    },
   });
-  
 
   // Drawer Content (Sidebar)
+  // On mobile, we include additional items ("Add Supplier" and "LeadGeneration AI")
   const drawer = (
     <Box onClick={isMobile ? handleDrawerToggle : undefined} sx={{ textAlign: "center" }}>
       <Typography variant="h6" sx={{ my: 2 }}>
@@ -150,7 +137,31 @@ const Home = () => {
       </Typography>
       <Divider />
       <List>
-        <h4>LeadGeneration AI</h4>
+        {/* Additional items for mobile view */}
+        {isMobile && (
+          <>
+            <ListItem disablePadding>
+              <ListItemButton
+                component={Link}
+                to="/supplier-form"
+                selected={activeTab === "supplier-form"}
+                onClick={() => setActiveTab("supplier-form")}
+              >
+                <ListItemText primary="Add Supplier" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton
+                component={Link}
+                to="/chat"
+                selected={activeTab === "chat"}
+                onClick={() => setActiveTab("chat")}
+              >
+                <ListItemText primary="LeadGeneration AI" />
+              </ListItemButton>
+            </ListItem>
+          </>
+        )}
         <ListItem disablePadding>
           <ListItemButton
             selected={activeTab === "company"}
@@ -194,24 +205,30 @@ const Home = () => {
       </List>
     </Box>
   );
-  
+
   return (
     <ThemeProvider theme={customTheme}>
       <Box sx={{ display: "flex" }}>
         <CssBaseline />
 
-        {/* AppBar */}
+        {/* AppBar with a very light header background */}
         <AppBar
           position="fixed"
           sx={{
             zIndex: (theme) => theme.zIndex.drawer + 1,
-            bgcolor: "#fff",
+            bgcolor: "#e3f2fd", // very light blue color
             color: "#000",
             boxShadow: 1,
           }}
         >
-          <Toolbar sx={{ justifyContent: "space-between" }}>
-            {/* Left: Menu Icon for Mobile and Title */}
+          <Toolbar
+            sx={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: { xs: "wrap", sm: "nowrap" },
+            }}
+          >
+            {/* Left: Hamburger icon (on mobile) and Title */}
             <Box sx={{ display: "flex", alignItems: "center" }}>
               {isMobile && (
                 <IconButton
@@ -225,7 +242,7 @@ const Home = () => {
                 </IconButton>
               )}
               <Box>
-                <Typography variant="h6" noWrap component="div">
+                <Typography variant="h6" noWrap>
                   Lead Management Platform
                 </Typography>
                 <Typography variant="body2" noWrap>
@@ -234,28 +251,30 @@ const Home = () => {
               </Box>
             </Box>
 
-            {/* Center: Navigation Buttons */}
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Button
-                component={Link}
-                to="/supplier-form"
-                color="inherit"
-                startIcon={<EditIcon />}
-              >
-                Add Supplier
-              </Button>
-              <Button
-                component={Link}
-                to="/chat"
-                color="inherit"
-                startIcon={<ChatIcon />}
-              >
-                LeadGeneration AI
-              </Button>
-            </Box>
+            {/* Center: Navigation buttons (only on larger screens) */}
+            {!isMobile && (
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  component={Link}
+                  to="/supplier-form"
+                  color="inherit"
+                  startIcon={<EditIcon />}
+                >
+                  Add Supplier
+                </Button>
+                <Button
+                  component={Link}
+                  to="/chat"
+                  color="inherit"
+                  startIcon={<ChatIcon />}
+                >
+                  LeadGeneration AI
+                </Button>
+              </Box>
+            )}
 
-            {/* Right: Profile Avatar */}
-            <Box>
+            {/* Right: Profile Avatar (always visible) */}
+            <Box sx={{ display: "flex", alignItems: "center" }}>
               <IconButton size="large" edge="end" color="inherit" onClick={handleProfileMenuOpen}>
                 <Avatar sx={{ bgcolor: customTheme.palette.primary.main }}>
                   {userName.charAt(0).toUpperCase()}
@@ -289,15 +308,12 @@ const Home = () => {
 
         {/* Responsive Drawer */}
         <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
-          {/* Temporary Drawer for Mobile */}
-          {isMobile && (
+          {isMobile ? (
             <Drawer
               variant="temporary"
               open={mobileOpen}
               onClose={handleDrawerToggle}
-              ModalProps={{
-                keepMounted: true,
-              }}
+              ModalProps={{ keepMounted: true }}
               sx={{
                 display: { xs: "block", sm: "none" },
                 "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
@@ -305,9 +321,7 @@ const Home = () => {
             >
               {drawer}
             </Drawer>
-          )}
-          {/* Permanent Drawer for Desktop */}
-          {!isMobile && (
+          ) : (
             <Drawer
               variant="permanent"
               sx={{
@@ -346,16 +360,11 @@ const Home = () => {
               setGeneratedLeads={setGeneratedLeads}
             />
           )}
-          {activeTab === "emails" && (
-            <GenerateEmailsComponent supplierId={1} autoPreview={true} />
-          )}
+          {activeTab === "emails" && <GenerateEmailsComponent supplierId={1} autoPreview={true} />}
           {activeTab === "emailLogs" && <EmailLogs />}
           {activeTab === "emailSettings" && (
-          <EmailSettings 
-            open={true} 
-            handleClose={() => setActiveTab("company")}  // Reset tab on close
-          />
-        )}  
+            <EmailSettings open={true} handleClose={() => setActiveTab("company")} />
+          )}
           {loading && <Typography>Loading...</Typography>}
           {error && <Typography color="error">{error}</Typography>}
         </Box>

@@ -47,13 +47,13 @@ const Lead = ({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState("company_name");
-  
-  const duplicateEmails = {};
-    generatedLeads.forEach((lead) => {
-      const email = lead.email;
-      duplicateEmails[email] = (duplicateEmails[email] || 0) + 1;
-    });
 
+  // Count duplicate emails to highlight them
+  const duplicateEmails = {};
+  generatedLeads.forEach((lead) => {
+    const email = lead.email;
+    duplicateEmails[email] = (duplicateEmails[email] || 0) + 1;
+  });
 
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
@@ -93,18 +93,19 @@ const Lead = ({
     formData.append("file", file);
     const token = localStorage.getItem("token");
     try {
-      await axios.post("http://127.0.0.1:8000/api/upload-leads/", formData, {
+      const baseUrl = process.env.REACT_APP_API_BASE_URL;
+      await axios.post(`${baseUrl}/upload-leads/`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
-          "Authorization": token ? `Bearer ${token}` : "",
+          Authorization: token ? `Bearer ${token}` : "",
         },
       });
       setUploadSuccess(true);
       setUploadError("");
-      // Fetch leads after successful upload
-      const response = await axios.get("http://127.0.0.1:8000/api/leads/", {
+      // Fetch updated leads after successful upload
+      const response = await axios.get(`${baseUrl}/leads/`, {
         headers: {
-          "Authorization": token ? `Bearer ${token}` : "",
+          Authorization: token ? `Bearer ${token}` : "",
         },
       });
       setGeneratedLeads(response.data);
@@ -114,7 +115,7 @@ const Lead = ({
     }
   };
 
-  // Toggle selection for a single lead (using lead.id)
+  // Toggle selection for a single lead
   const toggleSelectLead = (leadId) => {
     if (selectedLeads.includes(leadId)) {
       setSelectedLeads(selectedLeads.filter((id) => id !== leadId));
@@ -138,11 +139,12 @@ const Lead = ({
     if (!window.confirm("Are you sure you want to delete the selected leads?")) return;
     const token = localStorage.getItem("token");
     try {
+      const baseUrl = process.env.REACT_APP_API_BASE_URL;
       await Promise.all(
         generatedLeads
           .filter((lead) => selectedLeads.includes(lead.id))
           .map((lead) =>
-            axios.delete(`http://127.0.0.1:8000/api/leads/${lead.id}/`, {
+            axios.delete(`${baseUrl}/leads/${lead.id}/`, {
               headers: { Authorization: token ? `Bearer ${token}` : "" },
             })
           )
@@ -154,7 +156,7 @@ const Lead = ({
     }
   };
 
-  // Filter leads based on search term (excluding contact name)
+  // Filter leads based on search term
   const filteredLeads = generatedLeads.filter((lead) =>
     [lead.company_name, lead.email, lead.phone, lead.address]
       .join(" ")
@@ -162,14 +164,14 @@ const Lead = ({
       .includes(searchTerm.toLowerCase())
   );
 
-  // Sorting the filtered leads based on sortBy field
+  // Sort the filtered leads based on sortBy field
   const sortedLeads = [...filteredLeads].sort((a, b) => {
     if (a[sortBy] < b[sortBy]) return -1;
     if (a[sortBy] > b[sortBy]) return 1;
     return 0;
   });
 
-  // Pagination: slice sorted leads array
+  // Paginate sorted leads
   const paginatedLeads = sortedLeads.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const handleChangePage = (event, newPage) => {
@@ -183,9 +185,9 @@ const Lead = ({
 
   return (
     <Grid container spacing={2}>
-      {/* Main Content: Leads Management */}
+      {/* Leads Management Section */}
       <Grid item xs={12}>
-        <Paper elevation={3} sx={{ p: 2 }}>
+        <Paper elevation={3} sx={{ p: { xs: 2, md: 3 } }}>
           {/* Header */}
           <Grid container spacing={2} alignItems="center" justifyContent="space-between">
             <Grid item xs={12} md={6}>
@@ -195,12 +197,19 @@ const Lead = ({
               </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="flex-end"
+                gap={1}
+                flexWrap="wrap"
+              >
                 <TextField
                   size="small"
                   placeholder="Search by name, email, phone or address"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{ width: { xs: "100%", sm: "250px" } }}
                 />
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                   <InputLabel id="sort-by-label">Sort By</InputLabel>
@@ -215,24 +224,25 @@ const Lead = ({
                     <MenuItem value="phone">Phone</MenuItem>
                     <MenuItem value="address">Address</MenuItem>
                   </Select>
-                </FormControl>              
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    startIcon={<CloudUploadIcon />}
-                  >
-                    Upload Leads
-                    <input
-                      type="file"
-                      hidden
-                      accept=".xlsx, .xls, .csv"
-                      onChange={handleFileChange}
-                    />
-                  </Button>        
+                </FormControl>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<CloudUploadIcon />}
+                >
+                  Upload Leads
+                  <input
+                    type="file"
+                    hidden
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFileChange}
+                  />
+                </Button>
               </Box>
             </Grid>
           </Grid>
 
+          {/* Preview & Confirm Upload */}
           {fileData.length > 0 && !uploadSuccess && (
             <Box mt={2}>
               <Typography variant="subtitle2" color="textSecondary" gutterBottom>
@@ -255,7 +265,7 @@ const Lead = ({
             </Box>
           )}
 
-          {/* Alerts */}
+          {/* Upload Error Alert */}
           <Box mt={2}>
             {uploadError && (
               <Alert severity="error" icon={<ErrorOutlineIcon />}>
@@ -285,10 +295,10 @@ const Lead = ({
             </Button>
           </Box>
 
-          {/* Leads Table with Pagination, Serial Number, and Selection Checkboxes */}
+          {/* Leads Table */}
           {generatedLeads.length > 0 ? (
-            <TableContainer component={Paper}>
-              <Table>
+            <TableContainer component={Paper} sx={{ maxHeight: 440 }}>
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell>Sr. No.</TableCell>
@@ -296,7 +306,7 @@ const Lead = ({
                     <TableCell>Email</TableCell>
                     <TableCell>Phone</TableCell>
                     <TableCell>Address</TableCell>
-                    <TableCell>Select</TableCell>
+                    <TableCell align="center">Select</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -313,7 +323,7 @@ const Lead = ({
                       <TableCell>{lead.email}</TableCell>
                       <TableCell>{lead.phone}</TableCell>
                       <TableCell>{lead.address}</TableCell>
-                      <TableCell>
+                      <TableCell align="center">
                         <Checkbox
                           checked={selectedLeads.includes(lead.id)}
                           onChange={() => toggleSelectLead(lead.id)}

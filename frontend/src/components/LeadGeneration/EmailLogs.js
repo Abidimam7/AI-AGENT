@@ -35,13 +35,17 @@ const EmailLogs = () => {
     setLoading(true);
     setError("");
     const token = localStorage.getItem("token");
+    // Build the API URL dynamically using the environment variable
+    const baseUrl = process.env.REACT_APP_API_BASE_URL;
+    const url = `${baseUrl}/email-logs/`;
+
     try {
       // Prepare query parameters
       const params = {};
       if (filterDate) params.date = filterDate;
       if (filterStatus && filterStatus !== "all") params.status = filterStatus;
 
-      const response = await axios.get("http://127.0.0.1:8000/api/email-logs/", {
+      const response = await axios.get(url, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
         params: params,
       });
@@ -77,23 +81,34 @@ const EmailLogs = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>Email Logs</Typography>
-      
+      <Typography variant="h5" sx={{ mb: 2 }}>
+        Email Logs
+      </Typography>
+
       {/* Dashboard Summary */}
-      <Box sx={{ mb: 2, display: "flex", gap: 3 }}>
+      <Box sx={{ mb: 2, display: "flex", flexWrap: "wrap", gap: 3 }}>
         <Typography variant="subtitle1">Total Emails: {dashboard.total}</Typography>
         <Typography variant="subtitle1">Sent: {dashboard.sent}</Typography>
         <Typography variant="subtitle1">Failed: {dashboard.failed}</Typography>
       </Box>
-      
+
       {/* Filters */}
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 2,
+        }}
+      >
         <TextField
           label="Filter by Date (YYYY-MM-DD)"
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: "200px" } }}
         />
-        <FormControl sx={{ minWidth: 150 }}>
+        <FormControl sx={{ minWidth: { xs: "100%", sm: "150px" } }}>
           <InputLabel id="status-filter-label">Status</InputLabel>
           <Select
             labelId="status-filter-label"
@@ -106,16 +121,18 @@ const EmailLogs = () => {
             <MenuItem value="failed">Failed</MenuItem>
           </Select>
         </FormControl>
-        <Button variant="contained" onClick={fetchLogs}>Filter</Button>
+        <Button variant="contained" onClick={fetchLogs}>
+          Filter
+        </Button>
       </Box>
-      
+
       {loading ? (
         <CircularProgress />
       ) : error ? (
         <Alert severity="error">{error}</Alert>
       ) : (
         <Paper>
-          <TableContainer>
+          <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
             <Table>
               <TableHead>
                 <TableRow>

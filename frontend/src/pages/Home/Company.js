@@ -12,7 +12,7 @@ import {
   FiDollarSign,
   FiInfo,
   FiCheck,
-  FiX
+  FiX,
 } from "react-icons/fi";
 
 // Reusable section header with an optional edit icon
@@ -40,9 +40,10 @@ const ToggleButton = ({ expanded, onClick }) => (
   </button>
 );
 
-
 const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
   const navigate = useNavigate();
+  // Use the dynamic API base URL from environment variables
+  const baseUrl = process.env.REACT_APP_API_BASE_URL;
 
   // These two state objects track which sections (by supplier id) are in edit mode,
   // and hold the temporary data for that section.
@@ -53,7 +54,7 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this supplier?")) return;
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/suppliers/${id}/`);
+      await axios.delete(`${baseUrl}/suppliers/${id}/`);
       setSuppliers(suppliers.filter((supplier) => supplier.id !== id));
     } catch (error) {
       alert("Failed to delete supplier. Please try again.");
@@ -118,19 +119,19 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
       const headers = token
         ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
         : {};
-  
+
       const response = await axios.put(
-        `http://127.0.0.1:8000/api/suppliers/${supplierId}/`,
+        `${baseUrl}/suppliers/${supplierId}/`,
         updatedFields,
         { headers }
       );
-      
+
       setSuppliers(
         suppliers.map((supplier) =>
           supplier.id === supplierId ? { ...supplier, ...response.data } : supplier
         )
       );
-      
+
       setEditMode((prev) => ({
         ...prev,
         [supplierId]: {
@@ -143,7 +144,6 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
       console.error("Update error:", error.response ? error.response.data : error.message);
     }
   };
-  
 
   // Cancel editing a specific section
   const handleCancelEdit = (supplierId, section) => {
@@ -215,16 +215,9 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                               <input
                                 type="text"
                                 className="form-control"
-                                value={
-                                  editData[supplier.id]?.contact?.contact_name || ""
-                                }
+                                value={editData[supplier.id]?.contact?.contact_name || ""}
                                 onChange={(e) =>
-                                  handleInputChange(
-                                    supplier.id,
-                                    "contact",
-                                    "contact_name",
-                                    e.target.value
-                                  )
+                                  handleInputChange(supplier.id, "contact", "contact_name", e.target.value)
                                 }
                               />
                             </div>
@@ -235,16 +228,9 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                               <input
                                 type="email"
                                 className="form-control"
-                                value={
-                                  editData[supplier.id]?.contact?.contact_email || ""
-                                }
+                                value={editData[supplier.id]?.contact?.contact_email || ""}
                                 onChange={(e) =>
-                                  handleInputChange(
-                                    supplier.id,
-                                    "contact",
-                                    "contact_email",
-                                    e.target.value
-                                  )
+                                  handleInputChange(supplier.id, "contact", "contact_email", e.target.value)
                                 }
                               />
                             </div>
@@ -255,33 +241,22 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                               <input
                                 type="text"
                                 className="form-control"
-                                value={
-                                  editData[supplier.id]?.contact?.contact_phone || ""
-                                }
+                                value={editData[supplier.id]?.contact?.contact_phone || ""}
                                 onChange={(e) =>
-                                  handleInputChange(
-                                    supplier.id,
-                                    "contact",
-                                    "contact_phone",
-                                    e.target.value
-                                  )
+                                  handleInputChange(supplier.id, "contact", "contact_phone", e.target.value)
                                 }
                               />
                             </div>
                             <div className="d-flex justify-content-end">
                               <button
                                 className="btn btn-success me-2"
-                                onClick={() =>
-                                  handleSaveSection(supplier.id, "contact")
-                                }
+                                onClick={() => handleSaveSection(supplier.id, "contact")}
                               >
                                 <FiCheck className="me-1" /> Save
                               </button>
                               <button
                                 className="btn btn-secondary"
-                                onClick={() =>
-                                  handleCancelEdit(supplier.id, "contact")
-                                }
+                                onClick={() => handleCancelEdit(supplier.id, "contact")}
                               >
                                 <FiX className="me-1" /> Cancel
                               </button>
@@ -320,16 +295,9 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                               </label>
                               <textarea
                                 className="form-control"
-                                value={
-                                  editData[supplier.id]?.product?.product_description || ""
-                                }
+                                value={editData[supplier.id]?.product?.product_description || ""}
                                 onChange={(e) =>
-                                  handleInputChange(
-                                    supplier.id,
-                                    "product",
-                                    "product_description",
-                                    e.target.value
-                                  )
+                                  handleInputChange(supplier.id, "product", "product_description", e.target.value)
                                 }
                               />
                             </div>
@@ -339,33 +307,22 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                               </label>
                               <textarea
                                 className="form-control"
-                                value={
-                                  editData[supplier.id]?.product?.key_features || ""
-                                }
+                                value={editData[supplier.id]?.product?.key_features || ""}
                                 onChange={(e) =>
-                                  handleInputChange(
-                                    supplier.id,
-                                    "product",
-                                    "key_features",
-                                    e.target.value
-                                  )
+                                  handleInputChange(supplier.id, "product", "key_features", e.target.value)
                                 }
                               />
                             </div>
                             <div className="d-flex justify-content-end">
                               <button
                                 className="btn btn-success me-2"
-                                onClick={() =>
-                                  handleSaveSection(supplier.id, "product")
-                                }
+                                onClick={() => handleSaveSection(supplier.id, "product")}
                               >
                                 <FiCheck className="me-1" /> Save
                               </button>
                               <button
                                 className="btn btn-secondary"
-                                onClick={() =>
-                                  handleCancelEdit(supplier.id, "product")
-                                }
+                                onClick={() => handleCancelEdit(supplier.id, "product")}
                               >
                                 <FiX className="me-1" /> Cancel
                               </button>
@@ -376,9 +333,7 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                             <p className="mb-2">
                               <strong>Description:</strong>
                             </p>
-                            <p className="text-muted">
-                              {supplier.product_description}
-                            </p>
+                            <p className="text-muted">{supplier.product_description}</p>
                             <p className="mb-0">
                               <strong>Key Features:</strong> {supplier.key_features}
                             </p>
@@ -406,16 +361,9 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                                 <input
                                   type="text"
                                   className="form-control"
-                                  value={
-                                    editData[supplier.id]?.business?.pricing_model || ""
-                                  }
+                                  value={editData[supplier.id]?.business?.pricing_model || ""}
                                   onChange={(e) =>
-                                    handleInputChange(
-                                      supplier.id,
-                                      "business",
-                                      "pricing_model",
-                                      e.target.value
-                                    )
+                                    handleInputChange(supplier.id, "business", "pricing_model", e.target.value)
                                   }
                                 />
                               </div>
@@ -426,17 +374,9 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                                 <input
                                   type="text"
                                   className="form-control"
-                                  value={
-                                    editData[supplier.id]?.business?.sales_cycle_length ||
-                                    ""
-                                  }
+                                  value={editData[supplier.id]?.business?.sales_cycle_length || ""}
                                   onChange={(e) =>
-                                    handleInputChange(
-                                      supplier.id,
-                                      "business",
-                                      "sales_cycle_length",
-                                      e.target.value
-                                    )
+                                    handleInputChange(supplier.id, "business", "sales_cycle_length", e.target.value)
                                   }
                                 />
                               </div>
@@ -447,17 +387,9 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                                 <input
                                   type="text"
                                   className="form-control"
-                                  value={
-                                    editData[supplier.id]?.business?.commission_structure ||
-                                    ""
-                                  }
+                                  value={editData[supplier.id]?.business?.commission_structure || ""}
                                   onChange={(e) =>
-                                    handleInputChange(
-                                      supplier.id,
-                                      "business",
-                                      "commission_structure",
-                                      e.target.value
-                                    )
+                                    handleInputChange(supplier.id, "business", "commission_structure", e.target.value)
                                   }
                                 />
                               </div>
@@ -465,17 +397,13 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                             <div className="d-flex justify-content-end">
                               <button
                                 className="btn btn-success me-2"
-                                onClick={() =>
-                                  handleSaveSection(supplier.id, "business")
-                                }
+                                onClick={() => handleSaveSection(supplier.id, "business")}
                               >
                                 <FiCheck className="me-1" /> Save
                               </button>
                               <button
                                 className="btn btn-secondary"
-                                onClick={() =>
-                                  handleCancelEdit(supplier.id, "business")
-                                }
+                                onClick={() => handleCancelEdit(supplier.id, "business")}
                               >
                                 <FiX className="me-1" /> Cancel
                               </button>

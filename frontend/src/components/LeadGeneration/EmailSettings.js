@@ -22,17 +22,28 @@ const EmailSettings = ({ open, handleClose }) => {
     email_host_password: "",
   });
 
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+
+  // Use dynamic API base URL from environment variables
+  const baseUrl = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      setSnackbar({ open: true, message: "Unauthorized: No token found", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Unauthorized: No token found",
+        severity: "error",
+      });
       return;
     }
 
     axios
-      .get("http://127.0.0.1:8000/api/email-settings/", {
+      .get(`${baseUrl}/email-settings/`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((response) => {
@@ -46,7 +57,7 @@ const EmailSettings = ({ open, handleClose }) => {
         });
         console.error("Error fetching email settings:", error.response || error);
       });
-  }, []);
+  }, [baseUrl]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -60,18 +71,30 @@ const EmailSettings = ({ open, handleClose }) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
     if (!token) {
-      setSnackbar({ open: true, message: "Unauthorized: No token found", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Unauthorized: No token found",
+        severity: "error",
+      });
       return;
     }
 
     try {
-      await axios.post("http://127.0.0.1:8000/api/email-settings/", emailSettings, {
+      await axios.post(`${baseUrl}/email-settings/`, emailSettings, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setSnackbar({ open: true, message: "Settings updated successfully!", severity: "success" });
+      setSnackbar({
+        open: true,
+        message: "Settings updated successfully!",
+        severity: "success",
+      });
       handleClose();
     } catch (error) {
-      setSnackbar({ open: true, message: "Failed to update settings", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Failed to update settings",
+        severity: "error",
+      });
       console.error("Error updating email settings:", error.response || error);
     }
   };
@@ -143,7 +166,10 @@ const EmailSettings = ({ open, handleClose }) => {
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

@@ -1,28 +1,15 @@
-export const fetchData = async (endpoint, method = "GET", body = null, extraHeaders = {}) => {
-    const token = localStorage.getItem("token");
-  
-    const headers = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...extraHeaders,
-    };
-  
-    try {
-      const response = await fetch(`https://ai-agent-zyo6.onrender.com/api${endpoint}`, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : null,
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to fetch data");
-      }
-  
-      return await response.json();
-    } catch (error) {
-      console.error(`Error in fetchData(${endpoint}):`, error.message);
-      return null;
-    }
-  };
-  
+// src/utils/api.js
+import axios from 'axios';
+
+// Use the API base URL from the environment variable
+const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+
+// Optionally, you can provide a fallback URL if needed:
+// const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api';
+
+const api = axios.create({
+  baseURL: apiBaseUrl,
+  // You can add default headers or other configurations here if needed
+});
+
+export default api;

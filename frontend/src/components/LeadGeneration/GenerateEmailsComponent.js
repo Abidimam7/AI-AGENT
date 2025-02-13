@@ -22,6 +22,9 @@ import {
 } from "@mui/material";
 
 const GenerateEmailsComponent = ({ autoPreview = false }) => {
+  // Dynamic API base URL from environment variables
+  const baseUrl = process.env.REACT_APP_API_BASE_URL;
+
   // State for suppliers and leads
   const [supplierList, setSupplierList] = useState([]);
   const [supplierId, setSupplierId] = useState(null);
@@ -50,7 +53,7 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
       return;
     }
     axios
-      .get("http://127.0.0.1:8000/api/suppliers/", {
+      .get(`${baseUrl}/suppliers/`, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
       })
       .then((response) => {
@@ -61,14 +64,14 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
         }
       })
       .catch((err) => console.error("Error fetching suppliers:", err));
-  }, []);
+  }, [baseUrl]);
 
   // Fetch leads for the selected supplier whenever supplierId changes
   useEffect(() => {
     if (!supplierId) return;
     const token = localStorage.getItem("token");
     axios
-      .get(`http://127.0.0.1:8000/api/leads/?supplier_id=${supplierId}`, {
+      .get(`${baseUrl}/leads/?supplier_id=${supplierId}`, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
       })
       .then((response) => {
@@ -77,7 +80,7 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
         setSelectedLeadIndices(response.data.map((_, idx) => idx));
       })
       .catch((err) => console.error("Error fetching leads:", err));
-  }, [supplierId]);
+  }, [supplierId, baseUrl]);
 
   // Handle supplier dropdown change
   const handleSupplierChange = (e) => {
@@ -127,7 +130,7 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
         (i) => leadList[i].email
       );
       const response = await axios.post(
-        "http://127.0.0.1:8000/generate-emails/",
+        `${baseUrl}/generate-emails/`,
         {
           supplier_id: supplierId,
           preview: true,
@@ -184,15 +187,15 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
         .map((i) => previewEmails[i])
         .filter((item) => item !== undefined)
         .map((item) => item.email);
-        
+
       if (emailsToSend.length === 0) {
         setError("No valid lead emails found.");
         setSending(false);
         return;
       }
-      
+
       await axios.post(
-        "http://127.0.0.1:8000/generate-emails/",
+        `${baseUrl}/generate-emails/`,
         {
           supplier_id: supplierId,
           preview: false,
@@ -210,8 +213,8 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     }
     setSending(false);
   };
-  
 
+  // Auto-trigger preview if autoPreview prop is true
   useEffect(() => {
     if (autoPreview) handlePreviewClick();
   }, [autoPreview]);

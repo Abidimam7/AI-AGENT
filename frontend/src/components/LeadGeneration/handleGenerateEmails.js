@@ -1,9 +1,9 @@
 import axios from "axios";
-import { useState } from "react";
 
 const handleGenerateEmails = async (supplierId, preview = false) => {
   try {
-    const response = await axios.post("http://127.0.0.1:8000/api/generate-emails/", {
+    const baseUrl = process.env.REACT_APP_API_BASE_URL;
+    const response = await axios.post(`${baseUrl}/generate-emails/`, {
       supplier_id: supplierId,
       preview: preview,  // If true, will return emails instead of sending
     });
@@ -19,3 +19,5 @@ const handleGenerateEmails = async (supplierId, preview = false) => {
     alert("Failed to generate AI emails.");
   }
 };
+
+export default handleGenerateEmails;

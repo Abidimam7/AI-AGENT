@@ -3,7 +3,6 @@ import { FiChevronRight, FiBriefcase, FiPackage, FiMessageSquare } from 'react-i
 import axios from 'axios';
 import { Button } from '@mui/material';
 
-
 const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLeads, onNewChat }) => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +14,8 @@ const CompanySidebar = ({ onCompanySelect, initialSelected, leads, onGenerateLea
     const fetchCompanies = async () => {
       const token = localStorage.getItem("token");
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/suppliers/', {
+        const baseUrl = process.env.REACT_APP_API_BASE_URL;
+        const response = await axios.get(`${baseUrl}/suppliers/`, {
           headers: { Authorization: token ? `Bearer ${token}` : "" }
         });
         setCompanies(response.data);
