@@ -340,24 +340,38 @@ class AIEmailGeneratorView(APIView):
         for lead in leads:
             print("DEBUG: Generating email for lead:", lead)
             prompt = f"""
-                Generate a professional, concise, and persuasive sales email for {supplier.company_name} targeting {lead.company_name}. 
-                The email should include a separate subject line and a plain text email body without any markdown formatting or special symbols (like asterisks). 
-                Do not include the subject line in the email body.
+            Generate a highly professional sales email for {supplier.company_name} targeting {lead.company_name}.
+            Ensure the email is well-structured, persuasive, and includes clear formatting.
 
-                Subject: {supplier.company_name} - Exclusive Business Opportunity!
+            ### **Email Structure:**
+            **Subject:** {supplier.company_name} - Exclusive Business Opportunity!
 
-                Email Body:
-                Dear {lead.contact_name if hasattr(lead, 'contact_name') else 'Sir/Madam'},
+            **Body:**
+            Dear {lead.contact_name if hasattr(lead, 'contact_name') else 'Sir/Madam'},
 
-                I hope this email finds you well. I am {supplier.contact_name} from {supplier.company_name}. We specialize in {supplier.company_description} and believe that our expertise can bring significant value to your operations at {lead.company_name}.
+            I hope this email finds you well. I am {supplier.contact_name}, representing {supplier.company_name}.  
+            We specialize in {supplier.company_description}, offering high-quality solutions tailored to your business needs.
 
-                I would like to discuss a potential collaboration at your convenience. Please feel free to reply to this email or contact me directly at {supplier.contact_phone}.
+            I wanted to personally reach out to explore a potential collaboration between {supplier.company_name} and {lead.company_name}.  
+            We believe our expertise and products can bring significant value to your operations.
 
-                Best regards,
-                {supplier.contact_name}
-                {supplier.company_name}
-                Contact: {supplier.contact_phone}, {supplier.contact_email}
-                Website: {supplier.company_website}
+            ### **Why Choose Us?**
+            ✔ **Trusted Supplier** - {supplier.company_name} is known for {supplier.company_description}.  
+            ✔ **Competitive Pricing & Quality Assurance** - We ensure the best quality at the right price.  
+            ✔ **Client-Centric Approach** - Our team is dedicated to providing the best solutions tailored to your needs.
+
+            I would love to discuss this further at your convenience.  
+            You can reach me directly at **{supplier.contact_phone}** or reply to this email to schedule a call.
+
+            Looking forward to the opportunity to collaborate.
+
+            Best regards,  
+            **{supplier.contact_name}**  
+            {supplier.company_name}  
+            📞 {supplier.contact_phone}  
+            📧 {supplier.contact_email}  
+            🌐 [Visit Our Website]({supplier.company_website})
+
             --- 
 
             **Instructions for AI:**  
