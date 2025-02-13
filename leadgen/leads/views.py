@@ -339,28 +339,25 @@ class AIEmailGeneratorView(APIView):
         emails_generated = []
         for lead in leads:
             print("DEBUG: Generating email for lead:", lead)
-                prompt = f"""
-                    Generate a professional, concise, and persuasive sales email for {supplier.company_name} targeting {lead.company_name}. 
-                    The email should include a separate subject line and a plain text email body without any markdown formatting or special symbols (like asterisks). 
-                    Do not include the subject line in the email body.
+            prompt = f"""
+                Generate a professional, concise, and persuasive sales email for {supplier.company_name} targeting {lead.company_name}. 
+                The email should include a separate subject line and a plain text email body without any markdown formatting or special symbols (like asterisks). 
+                Do not include the subject line in the email body.
 
-                    Subject: {supplier.company_name} - Exclusive Business Opportunity!
+                Subject: {supplier.company_name} - Exclusive Business Opportunity!
 
-                    Email Body:
-                    Dear {lead.contact_name if hasattr(lead, 'contact_name') else 'Sir/Madam'},
+                Email Body:
+                Dear {lead.contact_name if hasattr(lead, 'contact_name') else 'Sir/Madam'},
 
-                    I hope this email finds you well. I am {supplier.contact_name} from {supplier.company_name}. We specialize in {supplier.company_description} and believe that our expertise can bring significant value to your operations at {lead.company_name}.
+                I hope this email finds you well. I am {supplier.contact_name} from {supplier.company_name}. We specialize in {supplier.company_description} and believe that our expertise can bring significant value to your operations at {lead.company_name}.
 
-                    I would like to discuss a potential collaboration at your convenience. Please feel free to reply to this email or contact me directly at {supplier.contact_phone}.
+                I would like to discuss a potential collaboration at your convenience. Please feel free to reply to this email or contact me directly at {supplier.contact_phone}.
 
-                    Best regards,
-                    {supplier.contact_name}
-                    {supplier.company_name}
-                    Contact: {supplier.contact_phone}, {supplier.contact_email}
-                    Website: {supplier.company_website}
-                    """
-
-
+                Best regards,
+                {supplier.contact_name}
+                {supplier.company_name}
+                Contact: {supplier.contact_phone}, {supplier.contact_email}
+                Website: {supplier.company_website}
             --- 
 
             **Instructions for AI:**  
