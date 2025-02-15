@@ -1,8 +1,9 @@
+// frontend/src/components/Chatbot/ChatInput.js
 import React from 'react';
 import { Box, TextField, IconButton } from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
-const ChatInput = ({ userInput, setUserInput, handleSubmit }) => {
+const ChatInput = ({ userInput, setUserInput, handleSubmit, isSending }) => {
   const handleKeyDown = (e) => {
     // Submit on Enter without Shift
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -20,26 +21,24 @@ const ChatInput = ({ userInput, setUserInput, handleSubmit }) => {
         alignItems: 'center',
         p: 1,
         bgcolor: 'background.paper',
-        borderRadius: 2,
-        boxShadow: 1,
+        borderRadius: '25px',
+        boxShadow: 2,
       }}
     >
       <TextField
         multiline
-        placeholder="Ask about lead details..."
+        placeholder="Type your message..."
         value={userInput}
         onChange={(e) => setUserInput(e.target.value)}
         onKeyDown={handleKeyDown}
         variant="outlined"
         fullWidth
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-          },
+        InputProps={{
+          sx: { borderRadius: '25px' },
         }}
       />
-      <IconButton type="submit" color="primary" sx={{ ml: 1 }}>
-        <SendIcon />
+      <IconButton type="submit" color="primary" disabled={isSending} sx={{ ml: 1 }}>
+        <KeyboardArrowUpIcon />
       </IconButton>
     </Box>
   );

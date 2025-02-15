@@ -1,30 +1,33 @@
 // frontend/src/components/Chatbot/Chatbot.js
+import { Box, Typography, Button } from "@mui/material";
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import CompanySidebar from "../../components/Sidebar/CompanySidebar";
-import ChatMessages from "../../components/Chatbot/ChatMessages";
-import ChatInput from "../../components/Chatbot/ChatInput";
-import { createBotMessage, processBotResponse } from "../../components/Chatbot/chatHelpers";
+import ChatMessages from "./ChatMessages";
+import ChatInput from "./ChatInput";
+import { createBotMessage, processBotResponse } from "./chatHelpers";
 import "./Chatbot.css";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 
-// Dynamic API base URL from the environment variable.
+const drawerWidth = 240;
 const baseUrl = process.env.REACT_APP_API_BASE_URL; // e.g., "http://127.0.0.1:8000/api"
 
 const Chatbot = () => {
-  // State declarations
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [activeLead, setActiveLead] = useState(null);
   const [botTyping, setBotTyping] = useState(false);
   const [conversationContext, setConversationContext] = useState({});
   const [companyDetails, setCompanyDetails] = useState(null);
-  const [leads, setLeads] = useState([]);         // AI-generated leads (temporary)
-  const [savedLeads, setSavedLeads] = useState([]); // Permanently saved leads
+  const [leads, setLeads] = useState([]);
+  const [savedLeads, setSavedLeads] = useState([]);
   const [isSending, setIsSending] = useState(false);
   const [awaitingExtraDetails, setAwaitingExtraDetails] = useState(false);
-  const chatEndRef = useRef(null);
 
-  // Removed suggestions since we are not using them anymore.
+  const chatEndRef = useRef(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // Load company details and any previously saved leads on mount
   useEffect(() => {
@@ -54,7 +57,6 @@ const Chatbot = () => {
           supplier_id: activeLead ? activeLead.id : null,
           leads: leads.map((lead) => ({
             ...lead,
-            // Mark these as AI-generated. (Alternatively, use a 'source' field.)
             is_generated: true,
           })),
         };
@@ -71,7 +73,6 @@ const Chatbot = () => {
         console.error("Error saving leads:", err);
         addBotMessage("Failed to save leads. Please try again.");
       }
-      // Clear temporary generated leads and user input.
       setLeads([]);
       setUserInput("");
       return;
@@ -116,7 +117,6 @@ const Chatbot = () => {
 
       if (response.data?.leads) {
         setLeads(response.data.leads);
-        // Display a formatted message in chat area for generated leads.
         let leadMessage = "Generated Leads:\n";
         response.data.leads.forEach((lead, idx) => {
           leadMessage += `${idx + 1}. Company: ${lead.company_name}, Email: ${lead.email}, Phone: ${lead.phone}, Address: ${lead.address}`;
@@ -195,7 +195,9 @@ Description: ${supplierInfo.product_description}`;
   // Error handler for API errors.
   const handleError = (error) => {
     if (error.response) {
-      addBotMessage(`Server error: ${error.response.data.message || "Please try again later."}`);
+      addBotMessage(
+        `Server error: ${error.response.data.message || "Please try again later."}`
+      );
     } else if (error.request) {
       addBotMessage("No response from server. Check your internet connection.");
     } else {
@@ -213,51 +215,123 @@ Description: ${supplierInfo.product_description}`;
     generateLeads(company);
   };
 
-  // Function to start a new chat by clearing the chat history.
   const handleNewChat = () => {
+    sessionStorage.removeItem("chatHistory");
     setChatHistory([]);
   };
+  
+  
 
   return (
-    <div className="chat-app">
+    <Box sx={{ display: "flex" }}>
+      {/* Sidebar (fixed) */}
       <CompanySidebar
         onCompanySelect={handleCompanySelect}
         initialSelected={companyDetails}
-        onGenerateLeads={generateLeads}
+        onGenerateLeads={() => activeLead && generateLeads(activeLead)}
         onNewChat={handleNewChat}
       />
 
-      <div className="main-chat">
-        <div className="chat-container">
-          <div className="chat-header">
-            <h1>Lead Generation Assistant</h1>
-            <p>AI-powered lead research and analysis</p>
-          </div>
-
-          <ChatMessages
-            chatHistory={chatHistory}
-            botTyping={botTyping}
-            setUserInput={setUserInput}
-            chatEndRef={chatEndRef}
-          />
-
-          <ChatInput
-            userInput={userInput}
-            setUserInput={setUserInput}
-            handleSubmit={handleSubmit}
-            isSending={isSending}
-          />
-        </div>
-      </div>
-
-      {/* Home Button */}
-      <button
-        className="home-button"
-        onClick={() => (window.location.href = "/home")}
+      {/* Main Chat Container */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          // Offset main area so it doesn't go behind the sidebar on desktop
+          ml: isMobile ? 0 : `${drawerWidth}px`,
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "background.default",
+        }}
       >
-        Home
-      </button>
-    </div>
+        {/* Header */}
+        <Box
+          sx={{
+            p: 1,
+            borderBottom: "1px solid #ddd",
+            textAlign: "center"
+          }}
+        >
+          <Typography variant="h5">Lead Generation Assistant</Typography>
+          <Typography variant="subtitle1">
+            AI‑powered lead research and analysis
+          </Typography>
+        </Box>
+        {/* Centered Chat Content */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            py: 2,
+            px: 1,
+            overflow: "hidden",
+          }}
+        >
+          {/* Inner Container with max width */}
+          <Box
+            sx={{
+              width: "100%",
+              maxWidth: 900,
+              display: "flex",
+              flexDirection: "column",
+              flexGrow: 1,
+              borderRadius: 2,
+            }}
+          >
+            {/* Chat Messages (scrollable area) */}
+            <Box
+              sx={{
+                flexGrow: 1,
+                overflowY: "auto",
+                px: 2,
+                py: 2,
+                borderRadius: 2,
+              }}
+            >
+              <ChatMessages
+                chatHistory={chatHistory}
+                botTyping={botTyping}
+                chatEndRef={chatEndRef}
+              />
+            </Box>
+
+            {/* Chat Input (sticky at bottom) */}
+            <Box
+              sx={{
+                borderTop: "1px solid #ddd",
+                p: 2,
+                backgroundColor: "background.paper",
+                position: "sticky",
+                bottom: 0,
+              }}
+            >
+              <ChatInput
+                userInput={userInput}
+                setUserInput={setUserInput}
+                handleSubmit={handleSubmit}
+                isSending={isSending}
+              />
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Home Button */}
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => (window.location.href = "/home")}
+          sx={{
+            position: "fixed",
+            top: 16,
+            right: 16,
+          }}
+        >
+          HOME
+        </Button>
+      </Box>
+    </Box>
   );
 };
 

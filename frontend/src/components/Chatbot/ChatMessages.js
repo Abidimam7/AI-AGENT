@@ -1,7 +1,8 @@
+// frontend/src/components/Chatbot/ChatMessages.js
 import React, { useEffect, useRef } from 'react';
-import { Box, Avatar, Typography, Paper, Grid } from '@mui/material';
+import { Box, Avatar, Typography, Paper } from '@mui/material';
 
-const ChatMessages = ({ chatHistory, botTyping, suggestions, setUserInput, chatEndRef }) => {
+const ChatMessages = ({ chatHistory, botTyping, chatEndRef }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -9,11 +10,11 @@ const ChatMessages = ({ chatHistory, botTyping, suggestions, setUserInput, chatE
   }, [chatHistory, botTyping]);
 
   return (
-    <Box sx={{ p: 2, overflowY: 'auto', flexGrow: 1 }}>
+    <Box sx={{ width: '100%' }}>
       {chatHistory.length === 0 ? (
         <Box sx={{ textAlign: 'center', mt: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Suggestions
+          <Typography variant="body1" color="textSecondary">
+            Start the conversation...
           </Typography>
         </Box>
       ) : (
@@ -44,13 +45,7 @@ const ChatMessages = ({ chatHistory, botTyping, suggestions, setUserInput, chatE
       )}
 
       {botTyping && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            mb: 2,
-          }}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
           <Avatar sx={{ bgcolor: 'secondary.main', mr: 1 }}>AI</Avatar>
           <Paper
             sx={{

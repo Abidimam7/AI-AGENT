@@ -1,3 +1,4 @@
+// frontend/src/components/Chatbot/chatHelpers.js
 export const createBotMessage = (message, sources) => ({
   type: 'bot',
   message,
@@ -6,9 +7,7 @@ export const createBotMessage = (message, sources) => ({
 });
 
 export const processBotResponse = (data, setChatHistory, setConversationContext, typeSpeed = 30) => {
-  // Merge new context values (if any) with existing context
   setConversationContext(prev => ({ ...prev, ...(data.context || {}) }));
-  // Start the typewriter effect with a configurable speed (default is 30ms per character)
   startTypewriterEffect(data.message, data.sources || [], setChatHistory, typeSpeed);
 };
 
@@ -22,7 +21,7 @@ export const startTypewriterEffect = (fullMessage, sources, setChatHistory, spee
   const intervalId = setInterval(() => {
     if (index < fullMessage.length) {
       currentMessage += fullMessage[index];
-      // Replace the last message (the one we just added) with the updated message
+      // Replace the last message with the updated one
       setChatHistory(prev => {
         const newHistory = [...prev];
         newHistory[newHistory.length - 1] = createBotMessage(currentMessage, sources);
@@ -34,6 +33,6 @@ export const startTypewriterEffect = (fullMessage, sources, setChatHistory, spee
     }
   }, speed);
 
-  // Return a cleanup function to clear the interval if needed
+  // Cleanup function if needed
   return () => clearInterval(intervalId);
 };
