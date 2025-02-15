@@ -115,18 +115,29 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-import os
+# import os
+# import dj_database_url
+# from pathlib import Path
+
+# BASE_DIR = Path(__file__).resolve().parent.parent
+
+# # Update your DATABASES setting:
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default="postgres://postgres:1234@127.0.0.1:5432/aiagent_db"
+#     )
+# }
 import dj_database_url
-from pathlib import Path
+import os
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Update your DATABASES setting:
 DATABASES = {
     'default': dj_database_url.config(
-        default="postgres://postgres:1234@127.0.0.1:5432/aiagent_db"
+        default="postgresql://aiagent_db_gpoz_user:jJwgoNmEsYnBNrABn0dodYcMO186WeQf@dpg-cuoeb6ggph6c73dm2q60-a.oregon-postgres.render.com/aiagent_db_gpoz",
+        conn_max_age=600,
+        ssl_require=True  # SSL connection use करने के लिए
     )
 }
+
 
 
 # Password validation
