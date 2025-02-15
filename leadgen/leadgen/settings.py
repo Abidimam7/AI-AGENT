@@ -65,6 +65,7 @@ REST_FRAMEWORK = {
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
+    'https://ai-agent-zyo6.onrender.com',
 ]
 
 CSRF_COOKIE_SECURE = False  # For local dev

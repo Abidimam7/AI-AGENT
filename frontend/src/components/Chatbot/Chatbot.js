@@ -1,74 +1,92 @@
-import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import CompanySidebar from '../../components/Sidebar/CompanySidebar';
-import ChatMessages from '../../components/Chatbot/ChatMessages';
-import ChatInput from '../../components/Chatbot/ChatInput';
-import { createBotMessage, processBotResponse } from '../../components/Chatbot/chatHelpers';
-import './Chatbot.css';
+// frontend/src/components/Chatbot/Chatbot.js
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import CompanySidebar from "../../components/Sidebar/CompanySidebar";
+import ChatMessages from "../../components/Chatbot/ChatMessages";
+import ChatInput from "../../components/Chatbot/ChatInput";
+import { createBotMessage, processBotResponse } from "../../components/Chatbot/chatHelpers";
+import "./Chatbot.css";
+
+// Dynamic API base URL from the environment variable.
+const baseUrl = process.env.REACT_APP_API_BASE_URL; // e.g., "http://127.0.0.1:8000/api"
 
 const Chatbot = () => {
   // State declarations
-  const [userInput, setUserInput] = useState('');
+  const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [activeLead, setActiveLead] = useState(null);
   const [botTyping, setBotTyping] = useState(false);
   const [conversationContext, setConversationContext] = useState({});
   const [companyDetails, setCompanyDetails] = useState(null);
-  const [leads, setLeads] = useState([]);         // Generated leads (temporary)
-  const [savedLeads, setSavedLeads] = useState([]); // Permanently saved leads (displayed in chat)
+  const [leads, setLeads] = useState([]);         // AI-generated leads (temporary)
+  const [savedLeads, setSavedLeads] = useState([]); // Permanently saved leads
   const [isSending, setIsSending] = useState(false);
   const [awaitingExtraDetails, setAwaitingExtraDetails] = useState(false);
   const chatEndRef = useRef(null);
 
-  const suggestions = [
-    "Show me recent leads in tech",
-    "Analyze healthcare industry trends",
-    "Suggest follow-up strategies",
-    "Create lead scoring criteria"
-  ];
+  // Removed suggestions since we are not using them anymore.
 
-  // Load company details from sessionStorage on mount
+  // Load company details and any previously saved leads on mount
   useEffect(() => {
     const savedDetails = sessionStorage.getItem("companyDetails");
     if (savedDetails) {
       setCompanyDetails(JSON.parse(savedDetails));
     }
-    // Optionally, load any previously saved leads (if persisting via localStorage)
     const storedSavedLeads = localStorage.getItem("savedLeads");
     if (storedSavedLeads) {
       setSavedLeads(JSON.parse(storedSavedLeads));
     }
   }, []);
 
-  // Function to handle regular chat message submission
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!userInput.trim() || isSending) return; // Prevent empty or multiple submissions
+    if (!userInput.trim() || isSending) return;
     sendUserMessage(userInput);
   };
 
   const sendUserMessage = async (message) => {
-    // If user types "save" and there are generated leads, display saved leads in chat.
+    // If user types "save" and there are generated leads, save them permanently.
     if (message.trim().toLowerCase() === "save" && leads.length > 0) {
-      setSavedLeads(leads);
-      localStorage.setItem("savedLeads", JSON.stringify(leads));
-      let savedLeadsMessage = "Saved Leads:\n";
-      leads.forEach((lead, idx) => {
-        savedLeadsMessage += `${idx + 1}. Company: ${lead.company_name}, Email: ${lead.email}, Phone: ${lead.phone}, Address: ${lead.address}\n`;
-      });
-      addBotMessage(savedLeadsMessage);
+      const token = localStorage.getItem("token");
+      try {
+        const payload = {
+          supplier_id: activeLead ? activeLead.id : null,
+          leads: leads.map((lead) => ({
+            ...lead,
+            // Mark these as AI-generated. (Alternatively, use a 'source' field.)
+            is_generated: true,
+          })),
+        };
+
+        const response = await axios.post(
+          `${baseUrl}/save-generated-leads/`,
+          payload,
+          { headers: { Authorization: token ? `Bearer ${token}` : "" } }
+        );
+        setSavedLeads(response.data);
+        localStorage.setItem("savedLeads", JSON.stringify(response.data));
+        addBotMessage("Leads saved successfully!");
+      } catch (err) {
+        console.error("Error saving leads:", err);
+        addBotMessage("Failed to save leads. Please try again.");
+      }
+      // Clear temporary generated leads and user input.
       setLeads([]);
-      setUserInput('');
+      setUserInput("");
       return;
     }
 
+    // If extra details are awaited for lead generation
     if (activeLead && awaitingExtraDetails) {
       const parts = message.split(",");
       if (parts.length >= 2) {
         const location = parts[0].trim();
         const num_leads = parts[1].trim();
-        setConversationContext(prev => ({ ...prev, location, num_leads }));
-        addBotMessage(`Received location: ${location} and number of leads: ${num_leads}. Generating leads...`);
+        setConversationContext((prev) => ({ ...prev, location, num_leads }));
+        addBotMessage(
+          `Received location: ${location} and number of leads: ${num_leads}. Generating leads...`
+        );
         setAwaitingExtraDetails(false);
         await generateLeads(activeLead);
       } else {
@@ -77,16 +95,17 @@ const Chatbot = () => {
       return;
     }
 
-    const userMessage = { type: 'user', message };
-    setChatHistory(prev => [...prev, userMessage]);
-    setUserInput('');
+    // Normal chat message processing
+    const userMessage = { type: "user", message };
+    setChatHistory((prev) => [...prev, userMessage]);
+    setUserInput("");
     setBotTyping(true);
     setIsSending(true);
 
     const token = localStorage.getItem("token");
     try {
       const response = await axios.post(
-        'http://127.0.0.1:8000/api/chat/',
+        `${baseUrl}/chat/`,
         {
           user_input: message,
           context: conversationContext,
@@ -97,7 +116,16 @@ const Chatbot = () => {
 
       if (response.data?.leads) {
         setLeads(response.data.leads);
-        addBotMessage("Leads generated successfully and updated in the sidebar. Type 'save' to confirm.");
+        // Display a formatted message in chat area for generated leads.
+        let leadMessage = "Generated Leads:\n";
+        response.data.leads.forEach((lead, idx) => {
+          leadMessage += `${idx + 1}. Company: ${lead.company_name}, Email: ${lead.email}, Phone: ${lead.phone}, Address: ${lead.address}`;
+          if (lead.is_generated) {
+            leadMessage += " [AI Generated]";
+          }
+          leadMessage += "\n";
+        });
+        addBotMessage(leadMessage);
       } else if (response.data?.message) {
         processBotResponse(response.data, setChatHistory, setConversationContext);
       }
@@ -109,33 +137,32 @@ const Chatbot = () => {
     setIsSending(false);
   };
 
-  // Function to generate leads using supplier info and extra details (location, num_leads)
+  // Function to generate leads using supplier info and extra details.
   const generateLeads = async (supplierInfo) => {
     setActiveLead(supplierInfo);
-    // Add supplier info to chat history
     const companyMessage = `Selected Supplier:
 Company: ${supplierInfo.company_name}
 Product: ${supplierInfo.product_name}
 Description: ${supplierInfo.product_description}`;
-    setChatHistory(prev => [...prev, { type: 'user', message: companyMessage }]);
+    setChatHistory((prev) => [...prev, { type: "user", message: companyMessage }]);
 
-    // If extra details are not provided, prompt and set awaiting state.
     if (!conversationContext.location || !conversationContext.num_leads) {
-      addBotMessage("Please provide the location and number of leads to generate, in the format: <location>,<number>");
+      addBotMessage(
+        "Please provide the location and number of leads to generate, in the format: <location>,<number>"
+      );
       setAwaitingExtraDetails(true);
       setBotTyping(false);
-      return; // Wait for user's input
+      return;
     }
 
     setBotTyping(true);
     const token = localStorage.getItem("token");
     try {
-      const location = conversationContext.location;
-      const num_leads = conversationContext.num_leads;
+      const { location, num_leads } = conversationContext;
       const response = await axios.post(
-        'http://127.0.0.1:8000/api/chat/',
+        `${baseUrl}/chat/`,
         {
-          user_input: "", // No extra message; using context parameters
+          user_input: "",
           context: conversationContext,
           active_lead: supplierInfo,
           location: location,
@@ -146,7 +173,15 @@ Description: ${supplierInfo.product_description}`;
 
       if (response.data?.leads) {
         setLeads(response.data.leads);
-        addBotMessage("Leads generated successfully and updated in the sidebar. Type 'save' to confirm.");
+        let leadMessage = "Generated Leads:\n";
+        response.data.leads.forEach((lead, idx) => {
+          leadMessage += `${idx + 1}. Company: ${lead.company_name}, Email: ${lead.email}, Phone: ${lead.phone}, Address: ${lead.address}`;
+          if (lead.is_generated) {
+            leadMessage += " [AI Generated]";
+          }
+          leadMessage += "\n";
+        });
+        addBotMessage(leadMessage);
       } else if (response.data?.message) {
         processBotResponse(response.data, setChatHistory, setConversationContext);
       }
@@ -157,7 +192,7 @@ Description: ${supplierInfo.product_description}`;
     setBotTyping(false);
   };
 
-  // Error handler for API errors
+  // Error handler for API errors.
   const handleError = (error) => {
     if (error.response) {
       addBotMessage(`Server error: ${error.response.data.message || "Please try again later."}`);
@@ -168,30 +203,30 @@ Description: ${supplierInfo.product_description}`;
     }
   };
 
-  // Helper function to add a bot message to the chat history
+  // Helper function to add a bot message to the chat history.
   const addBotMessage = (message) => {
-    setChatHistory(prev => [...prev, createBotMessage(message, [])]);
+    setChatHistory((prev) => [...prev, createBotMessage(message, [])]);
   };
 
-  // Handler when a company (supplier) is selected from the sidebar
+  // Handler when a supplier is selected from the sidebar.
   const handleCompanySelect = (company) => {
     generateLeads(company);
   };
 
-  // Function to start a new chat (clear chat history)
+  // Function to start a new chat by clearing the chat history.
   const handleNewChat = () => {
     setChatHistory([]);
   };
 
   return (
     <div className="chat-app">
-      <CompanySidebar 
-        onCompanySelect={handleCompanySelect} 
+      <CompanySidebar
+        onCompanySelect={handleCompanySelect}
         initialSelected={companyDetails}
         onGenerateLeads={generateLeads}
-        onNewChat={handleNewChat} 
+        onNewChat={handleNewChat}
       />
-      
+
       <div className="main-chat">
         <div className="chat-container">
           <div className="chat-header">
@@ -199,15 +234,14 @@ Description: ${supplierInfo.product_description}`;
             <p>AI-powered lead research and analysis</p>
           </div>
 
-          <ChatMessages 
+          <ChatMessages
             chatHistory={chatHistory}
             botTyping={botTyping}
-            suggestions={suggestions}
             setUserInput={setUserInput}
             chatEndRef={chatEndRef}
           />
 
-          <ChatInput 
+          <ChatInput
             userInput={userInput}
             setUserInput={setUserInput}
             handleSubmit={handleSubmit}
@@ -215,11 +249,11 @@ Description: ${supplierInfo.product_description}`;
           />
         </div>
       </div>
-      
-      {/* Home Button in the top-right corner */}
-      <button 
-        className="home-button" 
-        onClick={() => window.location.href = '/home'}    
+
+      {/* Home Button */}
+      <button
+        className="home-button"
+        onClick={() => (window.location.href = "/home")}
       >
         Home
       </button>

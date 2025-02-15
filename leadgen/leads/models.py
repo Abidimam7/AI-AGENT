@@ -46,18 +46,20 @@ from django.db import models
 
 class Lead(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='leads')
-    company_name = models.CharField(max_length=255, blank=False, null=False, default="Unknown Company")  # New field
+    company_name = models.CharField(max_length=255, blank=False, null=False, default="Unknown Company")
     name = models.CharField(max_length=255, blank=True, null=True, default='Default Lead')
-    email = models.EmailField(blank=True, null=True)  # New field
-    phone = models.CharField(max_length=20, blank=True, null=True)  # New field
-    address = models.TextField(blank=True, null=True)  # New field
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
     industry = models.CharField(max_length=255, blank=True, null=True, default='Default Industry')
     location = models.CharField(max_length=255, blank=True, null=True, default='Default Location')
-    status = models.CharField(max_length=100, default='New')  # New, Contacted, Closed
+    status = models.CharField(max_length=100, default='New')  # e.g., New, Contacted, Closed
     date_generated = models.DateTimeField(auto_now_add=True)
+    is_generated = models.BooleanField(default=False)  # True if generated via chatbot
 
     def __str__(self):
         return self.company_name
+
 
 
 class UploadedLead(models.Model):
@@ -112,7 +114,9 @@ class EmailLog(models.Model):
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE)
     sent_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=50)  # e.g., "sent" or "failed"
+    delivered = models.BooleanField(default=False)  # Email delivered status
+    read = models.BooleanField(default=False)       # Email read status
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.supplier.company_name} -> {self.lead.email} at {self.sent_at}"
+        return f"{self.supplier.company_name} -> {self.lead.email} at {self.sent_at} | Delivered: {self.delivered}, Read: {self.read}"

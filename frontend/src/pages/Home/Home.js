@@ -41,7 +41,8 @@ const drawerWidth = 240;
 
 const Home = () => {
   const [suppliers, setSuppliers] = useState([]);
-  const [generatedLeads, setGeneratedLeads] = useState([]);
+  const [savedLeads, setSavedLeads] = useState([]);
+  const [generatedLeads, setGeneratedLeads,] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -51,6 +52,8 @@ const Home = () => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   // activeTab can be: "company", "lead", "emails", "emailLogs", or "emailSettings"
   const [activeTab, setActiveTab] = useState("company");
+  
+
 
   // Profile Menu State
   const [anchorEl, setAnchorEl] = useState(null);
@@ -65,6 +68,9 @@ const Home = () => {
   // Responsive helpers
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
+
+ 
+  
 
   // Dynamic API base URL
   const baseUrl = process.env.REACT_APP_API_BASE_URL;
@@ -94,6 +100,31 @@ const Home = () => {
 
     fetchData();
   }, [baseUrl]);
+  useEffect(() => {
+    const fetchSavedLeads = async () => {
+      if (!suppliers.length) return;
+      const supplierId = suppliers[0].id; // Or use your selected supplier
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(
+          `${baseUrl}/generated-leads/list/?supplier_id=${supplierId}`,
+          { headers }
+        );
+        // Update state for saved leads
+        setSavedLeads(response.data);
+      } catch (err) {
+        console.error("Error fetching saved leads:", err);
+        setError("Failed to fetch saved leads.");
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchSavedLeads();
+  }, [suppliers, baseUrl]);
+  
 
   // Logout handler
   const handleLogout = () => {

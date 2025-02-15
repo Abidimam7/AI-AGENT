@@ -12,9 +12,14 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 # Lead Serializer
 class LeadSerializer(serializers.ModelSerializer):
+    sendCount = serializers.IntegerField(read_only=True)
+    deliveredCount = serializers.IntegerField(read_only=True)
+    readCount = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Lead
-        fields = '__all__'
+        fields = '__all__'  # or list all required fields including sendCount, deliveredCount, readCount
+    
 
 # Email Campaign Serializer
 class EmailCampaignSerializer(serializers.ModelSerializer):

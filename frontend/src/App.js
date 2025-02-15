@@ -6,6 +6,8 @@ import Home from "./pages/Home/Home";
 import Login from "./components/Forms/Login";  
 import Register from "./components/Forms/Register";  
 
+
+
 import "./styles/App.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 

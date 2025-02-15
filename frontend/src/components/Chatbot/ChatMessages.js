@@ -15,24 +15,6 @@ const ChatMessages = ({ chatHistory, botTyping, suggestions, setUserInput, chatE
           <Typography variant="h6" gutterBottom>
             Suggestions
           </Typography>
-          <Grid container spacing={2} justifyContent="center">
-            {suggestions.map((suggestion, index) => (
-              <Grid item key={index}>
-                <Paper
-                  sx={{
-                    p: 1,
-                    cursor: 'pointer',
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': { bgcolor: 'primary.dark' },
-                  }}
-                  onClick={() => setUserInput(suggestion)}
-                >
-                  <Typography variant="body2">{suggestion}</Typography>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
         </Box>
       ) : (
         chatHistory.map((msg, idx) => (

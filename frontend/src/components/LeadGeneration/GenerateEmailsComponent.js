@@ -19,75 +19,129 @@ import {
   Select,
   InputLabel,
   FormControl,
+  Grid,
+  Card,
+  CardContent,
+  Chip,
+  Badge,
+  Divider,
 } from "@mui/material";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: "#1976d2",
+    },
+    secondary: {
+      main: "#4caf50",
+    },
+    background: {
+      default: "#f5f5f5",
+    },
+  },
+});
 
-const baseUrl = process.env.REACT_APP_API_BASE_URL; // Dynamic API base URL
+const baseUrl = process.env.REACT_APP_API_BASE_URL;
+
 const GenerateEmailsComponent = ({ autoPreview = false }) => {
-
-  // State for suppliers and leads
   const [supplierList, setSupplierList] = useState([]);
   const [supplierId, setSupplierId] = useState(null);
   const [leadList, setLeadList] = useState([]);
   const [selectedLeadIndices, setSelectedLeadIndices] = useState([]);
-
-  // State for preview emails, loading, sending and error messages
   const [previewEmails, setPreviewEmails] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-
-  // Dialog controls
   const [openConfirm, setOpenConfirm] = useState(false);
   const [openLeadsDialog, setOpenLeadsDialog] = useState(false);
-
-  // For preview expansion and editing (if needed)
   const [expandedPreviews, setExpandedPreviews] = useState({});
   const [editingEmails, setEditingEmails] = useState({});
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [filters, setFilters] = useState({
+    status: "all",
+    delivered: "all",
+    read: "all",
+  });
 
-  // Fetch suppliers for the logged-in user on mount
+  const [stats, setStats] = useState({
+    totalSent: 0,
+    totalDelivered: 0,
+    totalRead: 0,
+    totalLeads: 0,
+  });
+
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found.");
-      return;
-    } 
-    
+    if (!token) return;
+
     axios.get(`${baseUrl}/suppliers/`, {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
+        headers: { Authorization: `Bearer ${token}` },
       })
       .then((response) => {
         setSupplierList(response.data);
         if (response.data.length > 0) {
-          // Set the first supplier as default
           setSupplierId(response.data[0].id);
         }
       })
-      .catch((err) => console.error("Error fetching suppliers:", err));
+      .catch(console.error);
   }, []);
 
-  // Fetch leads for the selected supplier whenever supplierId changes
   useEffect(() => {
     if (!supplierId) return;
     const token = localStorage.getItem("token");
     
     axios.get(`${baseUrl}/leads/?supplier_id=${supplierId}`, {
-        headers: { Authorization: token ? `Bearer ${token}` : "" },
+        headers: { Authorization: `Bearer ${token}` },
       })
       .then((response) => {
         setLeadList(response.data);
-        // By default, select all leads
         setSelectedLeadIndices(response.data.map((_, idx) => idx));
+        calculateStats(emailLogs, response.data);
       })
-      .catch((err) => console.error("Error fetching leads:", err));
+      .catch(console.error);
+
+    axios.get(`${baseUrl}/email-logs/?supplier_id=${supplierId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((response) => {
+        setEmailLogs(response.data);
+        calculateStats(response.data, leadList);
+      })
+      .catch(console.error);
   }, [supplierId]);
 
-  // Handle supplier dropdown change
+  const calculateStats = (logs, leads) => {
+    setStats({
+      totalSent: logs.length,
+      totalDelivered: logs.filter(log => log.delivered).length,
+      totalRead: logs.filter(log => log.read).length,
+      totalLeads: leads.length,
+    });
+  };
+
+  const getEmailCountForLead = (leadId) => {
+    return emailLogs.filter(log => log.lead.id === leadId).length;
+  };
+
+  const filteredLeads = leadList.filter(lead => {
+    const leadLogs = emailLogs.filter(log => log.lead.id === lead.id);
+    return (
+      (filters.status === "all" || leadLogs.some(log => log.status === filters.status)) &&
+      (filters.delivered === "all" || leadLogs.some(log => log.delivered === (filters.delivered === "yes"))) &&
+      (filters.read === "all" || leadLogs.some(log => log.read === (filters.read === "yes")))
+    );
+  });
+
+  const handleFilterChange = (name, value) => {
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSupplierChange = (e) => {
     setSupplierId(e.target.value);
   };
 
-  // Toggle selection for an individual lead
   const toggleLeadSelection = (index) => {
     setSelectedLeadIndices((prev) =>
       prev.includes(index)
@@ -96,7 +150,6 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     );
   };
 
-  // Toggle "Select All" for leads
   const toggleSelectAllLeads = () => {
     if (selectedLeadIndices.length === leadList.length) {
       setSelectedLeadIndices([]);
@@ -105,7 +158,6 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     }
   };
 
-  // Check if supplier and leads are selected; if yes, open confirmation dialog
   const handlePreviewClick = () => {
     if (!supplierId) {
       setError("Please select a supplier.");
@@ -119,13 +171,11 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     setOpenConfirm(true);
   };
 
-  // On confirmation, generate the email preview only for selected leads
   const generatePreview = async () => {
     setLoading(true);
     setError("");
     const token = localStorage.getItem("token");
     try {
-      // Prepare an array of email addresses from the selected leads
       const selectedEmails = selectedLeadIndices.map(
         (i) => leadList[i].email
       );
@@ -136,8 +186,7 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
         },
         { headers: { Authorization: token ? `Bearer ${token}` : "" } }
       );
-      const emails = response.data.emails || [];
-      setPreviewEmails(emails);
+      setPreviewEmails(response.data.emails || []);
       setOpenLeadsDialog(true);
     } catch (err) {
       console.error("Failed to generate email preview", err);
@@ -150,19 +199,17 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     setOpenConfirm(false);
     generatePreview();
   };
+
   const handleConfirmNo = () => setOpenConfirm(false);
 
-  // Toggle preview expansion
   const togglePreview = (index) => {
     setExpandedPreviews((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
-  // Toggle edit mode for an email preview
   const handleEditToggle = (index) => {
     setEditingEmails((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
-  // Update preview email subject or body during edit
   const handleEmailChange = (index, field, value) => {
     setPreviewEmails((prev) =>
       prev.map((email, idx) =>
@@ -180,17 +227,10 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     setError("");
     const token = localStorage.getItem("token");
     try {
-      // Safely extract only the emails for the selected leads from previewEmails:
       const emailsToSend = selectedLeadIndices
         .map((i) => previewEmails[i])
         .filter((item) => item !== undefined)
         .map((item) => item.email);
-        
-      if (emailsToSend.length === 0) {
-        setError("No valid lead emails found.");
-        setSending(false);
-        return;
-      }
       
       await axios.post(`${baseUrl}/generate-emails/`, {
           supplier_id: supplierId,
@@ -209,53 +249,128 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
     }
     setSending(false);
   };
-  
 
   useEffect(() => {
     if (autoPreview) handlePreviewClick();
   }, [autoPreview]);
 
   return (
-    <Box sx={{ mt: 2 }}>
-      {/* Supplier Selection */}
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center" }}>
-        <Typography variant="h6" sx={{ mr: 2 }}>
-          Select Supplier:
-        </Typography>
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel id="supplier-select-label">Supplier</InputLabel>
-          <Select
-            labelId="supplier-select-label"
-            value={supplierId || ""}
-            label="Supplier"
-            onChange={handleSupplierChange}
-          >
-            {supplierList.map((supplier) => (
-              <MenuItem key={supplier.id} value={supplier.id}>
-                {supplier.company_name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
+    <ThemeProvider theme={theme}>
+      <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+        {/* Statistics Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {Object.entries(stats).map(([key, value], index) => (
+            <Grid item xs={12} sm={6} md={3} key={key}>
+              <Card sx={{ 
+                borderRadius: 2,
+                bgcolor: index === 0 ? "#e3f2fd" : 
+                         index === 1 ? "#f0f4c3" :
+                         index === 2 ? "#c8e6c9" : "#ffecb3"
+              }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ textTransform: "capitalize" }}>
+                    {key.replace('total', '')}
+                  </Typography>
+                  <Typography variant="h4">{value}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
 
-      {/* Lead Selection */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h6">Select Leads:</Typography>
-        {leadList.length > 0 ? (
-          <>
+        {/* Filters Section */}
+        <Card sx={{ mb: 3, p: 2, borderRadius: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange("status", e.target.value)}
+                >
+                  <MenuItem value="all">All Statuses</MenuItem>
+                  <MenuItem value="sent">Sent</MenuItem>
+                  <MenuItem value="failed">Failed</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Delivered</InputLabel>
+                <Select
+                  value={filters.delivered}
+                  onChange={(e) => handleFilterChange("delivered", e.target.value)}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="yes">Yes</MenuItem>
+                  <MenuItem value="no">No</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Read</InputLabel>
+                <Select
+                  value={filters.read}
+                  onChange={(e) => handleFilterChange("read", e.target.value)}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="yes">Yes</MenuItem>
+                  <MenuItem value="no">No</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Card>
+
+        {/* Supplier Selection */}
+        <Card sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+          <Grid container alignItems="center" spacing={2}>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Select Supplier</InputLabel>
+                <Select
+                  value={supplierId || ""}
+                  onChange={handleSupplierChange}
+                >
+                  {supplierList.map((supplier) => (
+                    <MenuItem key={supplier.id} value={supplier.id}>
+                      {supplier.company_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <Typography variant="body2" color="text.secondary">
+                Selected Supplier: {supplierList.find(s => s.id === supplierId)?.company_name || "None"}
+              </Typography>
+            </Grid>
+          </Grid>
+        </Card>
+
+        {/* Leads List */}
+        <Card sx={{ borderRadius: 2 }}>
+          <Box sx={{ p: 2 }}>
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={selectedLeadIndices.length === leadList.length}
+                  checked={filteredLeads.length > 0 && 
+                    filteredLeads.every(lead => selectedLeadIds.includes(lead.id))}
+                  indeterminate={
+                    filteredLeads.some(lead => selectedLeadIds.includes(lead.id)) &&
+                    !filteredLeads.every(lead => selectedLeadIds.includes(lead.id))
+                  }
                   onChange={toggleSelectAllLeads}
                 />
               }
               label="Select All"
             />
-            <List>
-              {leadList.map((lead, index) => (
-                <ListItem key={index} divider>
+          </Box>  
+          <List>
+            {filteredLeads.map((lead, index) => (
+              <ListItem key={lead.id} divider>
+                <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
                   <FormControlLabel
                     control={
                       <Checkbox
@@ -263,167 +378,180 @@ const GenerateEmailsComponent = ({ autoPreview = false }) => {
                         onChange={() => toggleLeadSelection(index)}
                       />
                     }
-                    label={`${lead.company_name} (${lead.email})`}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </>
-        ) : (
-          <Typography>No leads available for this supplier.</Typography>
-        )}
-      </Box>
-
-      {/* Generate Email Preview Button */}
-      <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-        <Button
-          variant="contained"
-          onClick={handlePreviewClick}
-          disabled={loading || sending || leadList.length === 0}
-        >
-          {loading ? (
-            <>
-              <CircularProgress size={20} sx={{ mr: 1 }} /> Generating Preview...
-            </>
-          ) : (
-            "Generate Emails"
-          )}
-        </Button>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      {/* Confirmation Dialog for generating preview */}
-      <Dialog open={openConfirm} onClose={handleConfirmNo}>
-        <DialogTitle>Confirm Email Generation</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Generate email previews for the selected supplier and leads?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleConfirmNo}>Cancel</Button>
-          <Button onClick={handleConfirmYes} variant="contained">
-            Yes, Generate
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Dialog for preview emails and sending emails */}
-      <Dialog
-        open={openLeadsDialog}
-        onClose={() => setOpenLeadsDialog(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Select Leads to Send Emails</DialogTitle>
-        <DialogContent dividers>
-          {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : previewEmails.length > 0 ? (
-            <>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={selectedLeadIndices.length === previewEmails.length}
-                    onChange={toggleSelectAllLeads}
-                  />
-                }
-                label="Select All"
-              />
-              <List>
-                {previewEmails.map((email, index) => (
-                  <ListItem key={index} divider>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={selectedLeadIndices.includes(index)}
-                          onChange={() => toggleLeadSelection(index)}
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant="body1">
-                            <strong>To:</strong> {email.email}
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Subject:</strong> {email.subject}
-                          </Typography>
-                          <Button
+                    label={
+                      <Box>
+                        <Typography variant="subtitle1">
+                          {lead.company_name}
+                          <Chip
+                            label={`${getEmailCountForLead(lead.id)} emails sent`}
                             size="small"
-                            onClick={() => togglePreview(index)}
-                          >
-                            {expandedPreviews[index] ? "Hide Preview" : "Show Preview"}
-                          </Button>
-                          {expandedPreviews[index] && (
-                            <Box sx={{ p: 1, border: "1px solid #ddd", borderRadius: 1, mt: 1 }}>
-                              {editingEmails[index] ? (
-                                <>
-                                  <TextField
-                                    fullWidth
-                                    label="Subject"
-                                    variant="outlined"
-                                    value={email.subject}
-                                    onChange={(e) =>
-                                      handleEmailChange(index, "subject", e.target.value)
-                                    }
-                                    sx={{ mb: 1 }}
-                                  />
-                                  <TextField
-                                    fullWidth
-                                    multiline
-                                    label="Body"
-                                    variant="outlined"
-                                    value={email.body}
-                                    onChange={(e) =>
-                                      handleEmailChange(index, "body", e.target.value)
-                                    }
-                                    sx={{ mb: 1 }}
-                                  />
-                                  <Button size="small" onClick={() => handleEditToggle(index)}>
-                                    Save
-                                  </Button>
-                                  <Button size="small" onClick={() => handleEditToggle(index)}>
-                                    Cancel
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Typography variant="body2">{email.body}</Typography>
-                                  <Button size="small" onClick={() => handleEditToggle(index)}>
-                                    Edit
-                                  </Button>
-                                </>
-                              )}
-                            </Box>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          ) : (
-            <Typography>No email preview available.</Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenLeadsDialog(false)}>Cancel</Button>
-          <Button onClick={handleSendEmails} variant="contained" disabled={sending}>
-            {sending ? (
+                            sx={{ ml: 1 }}
+                          />
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {lead.email}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {emailLogs.some(log => log.lead.id === lead.id && log.delivered) && (
+                      <Chip label="Delivered" color="success" size="small" />
+                    )}
+                    {emailLogs.some(log => log.lead.id === lead.id && log.read) && (
+                      <Chip label="Read" color="info" size="small" />
+                    )}
+                  </Box>
+                </Box>
+              </ListItem>
+            ))}
+          </List>
+        </Card>
+
+        {/* Generate Email Preview Button */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handlePreviewClick}
+            disabled={loading || sending || leadList.length === 0}
+            sx={{ px: 6, py: 1.5 }}
+          >
+            {loading ? (
               <>
-                <CircularProgress size={20} sx={{ mr: 1 }} /> Sending Emails...
+                <CircularProgress size={24} sx={{ mr: 2 }} />
+                Generating Preview...
               </>
             ) : (
-              "Send Emails"
+              'Generate Email Preview'
             )}
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Box>
+
+        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+
+        {/* Confirmation Dialog */}
+        <Dialog open={openConfirm} onClose={handleConfirmNo}>
+          <DialogTitle>Confirm Email Generation</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Generate email previews for {selectedLeadIndices.length} selected leads?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleConfirmNo}>Cancel</Button>
+            <Button onClick={handleConfirmYes} variant="contained" color="primary">
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Preview & Send Dialog */}
+        <Dialog
+          open={openLeadsDialog}
+          onClose={() => setOpenLeadsDialog(false)}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle>Email Previews</DialogTitle>
+          <DialogContent dividers>
+            {previewEmails.map((email, index) => (
+              <Box key={index} sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Checkbox
+                    checked={selectedLeadIndices.includes(index)}
+                    onChange={() => toggleLeadSelection(index)}
+                  />
+                  <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+                    {email.email}
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={() => togglePreview(index)}
+                    sx={{ mr: 1 }}
+                  >
+                    {expandedPreviews[index] ? 'Hide' : 'Show'}
+                  </Button>
+                </Box>
+                {expandedPreviews[index] && (
+                  <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
+                    {editingEmails[index] ? (
+                      <>
+                        <TextField
+                          fullWidth
+                          label="Subject"
+                          value={email.subject}
+                          onChange={(e) => handleEmailChange(index, 'subject', e.target.value)}
+                          sx={{ mb: 2 }}
+                        />
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={6}
+                          label="Body"
+                          value={email.body}
+                          onChange={(e) => handleEmailChange(index, 'body', e.target.value)}
+                        />
+                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleEditToggle(index)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="small"
+                            onClick={() => handleEditToggle(index)}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="body2" gutterBottom>
+                          <strong>Subject:</strong> {email.subject}
+                        </Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="body2" whiteSpace="pre-wrap">
+                          {email.body}
+                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={() => handleEditToggle(index)}
+                          sx={{ mt: 1 }}
+                        >
+                          Edit
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            ))}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenLeadsDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleSendEmails}
+              variant="contained"
+              color="primary"
+              disabled={sending}
+            >
+              {sending ? (
+                <>
+                  <CircularProgress size={24} sx={{ mr: 2 }} />
+                  Sending...
+                </>
+              ) : (
+                'Send Selected Emails'
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </ThemeProvider>
   );
 };
 

@@ -30,6 +30,7 @@ from rest_framework.decorators import api_view, parser_classes, permission_class
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.serializers import ModelSerializer
+from django.db.models import Count, Q
 
 # App-Specific Imports
 from .models import Supplier, Lead, EmailCampaign, UploadedLead, EmailLog, EmailSettings
@@ -519,6 +520,24 @@ class RegisterView(APIView):
         print("Validation failed:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def supplier_leads(request):
+    supplier_id = request.query_params.get("supplier_id")
+    if not supplier_id:
+        return Response({"error": "supplier_id is required"}, status=400)
+
+    leads = Lead.objects.filter(supplier_id=supplier_id).annotate(
+        sendCount=Count('emaillog', filter=Q(emaillog__status='sent')),
+        deliveredCount=Count('emaillog', filter=Q(emaillog__delivered=True)),
+        readCount=Count('emaillog', filter=Q(emaillog__read=True))
+    )
+
+    serializer = LeadSerializer(leads, many=True)
+    return Response(serializer.data)
+
 # ------------------------------------------------------------------------------
 # Model ViewSets (accessible without further authentication)
 # ------------------------------------------------------------------------------
@@ -557,3 +576,61 @@ class EmailCampaignViewSet(viewsets.ModelViewSet):
 def index(request):
     return render(request, 'index.html')    
 
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_generated_leads(request):
+    """
+    Expects a JSON payload:
+    {
+        "supplier_id": <supplier_id>,
+        "leads": [
+            {
+                "company_name": "Example Company",
+                "email": "example@example.com",
+                "phone": "1234567890",
+                "address": "123 Example St",
+                "industry": "Optional Industry",
+                "location": "Optional Location",
+                "status": "New"  # or any status value
+            },
+            ...
+        ]
+    }
+    """
+    data = request.data
+    supplier_id = data.get("supplier_id")
+    leads_data = data.get("leads", [])
+
+    if not supplier_id or not leads_data:
+        return Response(
+            {"detail": "Supplier ID and leads data are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Verify that the supplier exists
+    try:
+        supplier = Supplier.objects.get(id=supplier_id)
+    except Supplier.DoesNotExist:
+        return Response(
+            {"detail": "Invalid supplier ID."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    saved_leads = []
+    for lead_data in leads_data:
+        # Assign supplier to lead_data
+        lead_data["supplier"] = supplier.id
+        serializer = LeadSerializer(data=lead_data)
+        if serializer.is_valid():
+            serializer.save()
+            saved_leads.append(serializer.data)
+        else:
+            # Return error for the first failing row (adjust if you want to skip errors)
+            return Response(
+                {"detail": f"Error saving lead: {serializer.errors}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    return Response(saved_leads, status=status.HTTP_201_CREATED)

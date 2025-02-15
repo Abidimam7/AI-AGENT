@@ -10,6 +10,7 @@ from .views import (
     AIEmailGeneratorView,
     EmailSettingsView,
     EmailLogListView,
+    save_generated_leads,
 )
 
 router = DefaultRouter()
@@ -28,4 +29,5 @@ urlpatterns = [
     path('api/email-settings/', EmailSettingsView.as_view(), name='email-settings'),
     path('api/email-logs/', EmailLogListView.as_view(), name='email-logs'),
     # path('', views.homepage, name='homepage'),
+    path('api/save-generated-leads/', save_generated_leads, name='save-generated-leads'),
 ]
