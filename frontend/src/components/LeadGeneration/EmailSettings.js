@@ -15,7 +15,7 @@ import {
 
 const EmailSettings = ({ open, handleClose }) => {
   const [emailSettings, setEmailSettings] = useState({
-    email_host: "",
+    email_host: "smtp.gmail.com",
     email_port: 587,
     email_use_tls: true,
     email_host_user: "",
