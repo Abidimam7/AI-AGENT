@@ -1,4 +1,4 @@
-import './SupplierForm.css';
+import './SupplierForm.css'; 
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -15,27 +15,27 @@ const SupplierForm = () => {
     product_description: "",
     key_features: "",
     primary_use_cases: "",
-    technical_requirements: "",
-    has_api: "No",
-    api_link: "",
-    pricing_model: "",
-    sales_cycle_length: "",
-    commission_structure: "",
-    discounts: "",
-    ideal_customer_profile: "",
-    pain_points: "",
-    marketing_materials: "",
-    success_stories: "",
-    onboarding_requirements: "",
-    competitors: "",
-    unique_selling_points: "",
-    branding_guidelines: "",
-    additional_info: "",
-    cost_info: "",
-    business_duration: "",
-    funding_details: "",
-    company_description: "",
-    product_demo: "",
+    // technical_requirements: "",
+    // has_api: "No",
+    // api_link: "",
+    // pricing_model: "",
+    // sales_cycle_length: "",
+    // commission_structure: "",
+    // discounts: "",
+    // ideal_customer_profile: "",
+    // pain_points: "",
+    // marketing_materials: "",
+    // success_stories: "",
+    // onboarding_requirements: "",
+    // competitors: "",
+    // unique_selling_points: "",
+    // branding_guidelines: "",
+    // additional_info: "",
+    // cost_info: "",
+    // business_duration: "",
+    // funding_details: "",
+    // company_description: "",
+    // product_demo: "",
     email_address: "",
   });
 
@@ -45,7 +45,7 @@ const SupplierForm = () => {
     { id: 2, title: "Contact Information" },
     { id: 3, title: "Product Details" },
     { id: 4, title: "Technical Specifications" },
-    { id: 5, title: "Business Model" },
+    // { id: 5, title: "Business Model" },
     { id: 6, title: "Additional Information" },
   ];
 
@@ -186,6 +186,7 @@ const SupplierForm = () => {
                     <textarea name="primary_use_cases" className="form-control form-control-lg" rows="2" required 
                       value={formData.primary_use_cases} onChange={handleChange}></textarea>
                   </div>
+                  {/*
                   <div className="col-12">
                     <label className="form-label">Technical Requirements</label>
                     <textarea name="technical_requirements" className="form-control form-control-lg" rows="2" 
@@ -205,12 +206,15 @@ const SupplierForm = () => {
                       <input type="url" name="api_link" className="form-control form-control-lg" 
                         value={formData.api_link} onChange={handleChange} />
                     </div>
-                  )}
+                  )} 
+                  */}
                 </div>
               )}
 
               {/* Business Model */}
               {section.id === 5 && (
+                // The entire Business Model fields have been commented out as requested.
+                /*
                 <div className="row g-4 mt-3">
                   <div className="col-md-4 col-12">
                     <label className="form-label">Pricing Model<span className="text-danger">*</span></label>
@@ -243,11 +247,14 @@ const SupplierForm = () => {
                       value={formData.pain_points} onChange={handleChange}></textarea>
                   </div>
                 </div>
+                */
+                <></>
               )}
 
               {/* Additional Information */}
               {section.id === 6 && (
                 <div className="row g-4 mt-3">
+                  {/*
                   <div className="col-md-6 col-12">
                     <label className="form-label">Marketing Materials Available</label>
                     <textarea name="marketing_materials" className="form-control form-control-lg" rows="2" 
@@ -308,6 +315,7 @@ const SupplierForm = () => {
                     <input type="url" name="product_demo" className="form-control form-control-lg" 
                       value={formData.product_demo} onChange={handleChange} />
                   </div>
+                  */}
                   <div className="col-md-6 col-12">
                     <label className="form-label">Notification Email<span className="text-danger">*</span></label>
                     <input type="email" name="email_address" className="form-control form-control-lg" required 

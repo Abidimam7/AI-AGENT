@@ -343,7 +343,7 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                     </div>
 
                     {/* Business Details Section */}
-                    <div className="col-md-12">
+                    {/* <div className="col-md-12">
                       <div className="p-3 bg-light rounded-2">
                         <SectionHeader
                           icon={FiDollarSign}
@@ -432,7 +432,7 @@ const Company = ({ suppliers, expandedId, setExpandedId, setSuppliers }) => {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                   {/* Note: The global edit option below has been removed per your request. */}
                 </div>

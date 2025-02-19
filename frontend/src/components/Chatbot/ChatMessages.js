@@ -1,6 +1,8 @@
 // frontend/src/components/Chatbot/ChatMessages.js
 import React, { useEffect, useRef } from 'react';
-import { Box, Avatar, Typography, Paper } from '@mui/material';
+import { Box, Avatar, Paper } from '@mui/material';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const ChatMessages = ({ chatHistory, botTyping, chatEndRef }) => {
   const messagesEndRef = useRef(null);
@@ -13,9 +15,11 @@ const ChatMessages = ({ chatHistory, botTyping, chatEndRef }) => {
     <Box sx={{ width: '100%' }}>
       {chatHistory.length === 0 ? (
         <Box sx={{ textAlign: 'center', mt: 4 }}>
-          <Typography variant="body1" color="textSecondary">
-            Start the conversation...
-          </Typography>
+          <Paper sx={{ p: 2 }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              Start the conversation...
+            </ReactMarkdown>
+          </Paper>
         </Box>
       ) : (
         chatHistory.map((msg, idx) => (
@@ -38,7 +42,47 @@ const ChatMessages = ({ chatHistory, botTyping, chatEndRef }) => {
                 bgcolor: msg.type === 'user' ? 'primary.light' : 'grey.100',
               }}
             >
-              <Typography variant="body1">{msg.message}</Typography>
+              {/* 
+                We pass our custom table/row/cell styles through the `components` prop.
+                This way, any Markdown tables in the message will be styled nicely.
+              */}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: ({ node, ...props }) => (
+                    <table
+                      style={{
+                        borderCollapse: 'collapse',
+                        width: '100%',
+                        margin: '1em 0',
+                      }}
+                      {...props}
+                    />
+                  ),
+                  th: ({ node, ...props }) => (
+                    <th
+                      style={{
+                        border: '1px solid #ddd',
+                        padding: '8px',
+                        background: '#f9f9f9',
+                        textAlign: 'left',
+                      }}
+                      {...props}
+                    />
+                  ),
+                  td: ({ node, ...props }) => (
+                    <td
+                      style={{
+                        border: '1px solid #ddd',
+                        padding: '8px',
+                      }}
+                      {...props}
+                    />
+                  ),
+                }}
+              >
+                {msg.message}
+              </ReactMarkdown>
             </Paper>
           </Box>
         ))

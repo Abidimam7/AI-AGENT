@@ -18,9 +18,11 @@ import {
   ListItemText,
   IconButton,
   Drawer,
+  ListItemButton,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+
 
 const drawerWidthExpanded = 300; // Width when expanded
 const drawerWidthCollapsed = 80; // Width when collapsed
@@ -152,18 +154,16 @@ const CompanySidebar = ({
             {error}
           </Typography>
         ) : companies.length > 0 ? (
+
+    // And in your companies list:
           <List>
             {companies.map((company) => (
-              <ListItem
+              <ListItemButton
                 key={company.id}
-                button
                 onClick={() => handleClick(company)}
                 sx={{
                   cursor: 'pointer',
-                  bgcolor:
-                    selectedCompany?.id === company.id
-                      ? 'action.selected'
-                      : 'transparent',
+                  bgcolor: selectedCompany?.id === company.id ? 'action.selected' : 'transparent',
                   borderRadius: 1,
                   mb: 1,
                   '&:hover': { bgcolor: 'action.hover' },
@@ -171,26 +171,26 @@ const CompanySidebar = ({
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <FiChevronRight
-                    style={{ marginRight: isExpanded ? 8 : 0 }}
-                  />
+                  <FiChevronRight style={{ marginRight: isExpanded ? 8 : 0 }} />
                   {isExpanded && (
                     <ListItemText
-                      primary={company.company_name}
-                      secondary={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <FiPackage style={{ marginRight: 4 }} />
-                          <Typography variant="body2">
-                            {company.product_name}
-                          </Typography>
-                        </Box>
-                      }
-                    />
+                    primary={company.company_name}
+                    secondary={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }} component="span">
+                        <FiPackage style={{ marginRight: 4 }} />
+                        <Typography variant="body2" component="span">
+                          {company.product_name}
+                        </Typography>
+                      </Box>
+                    }
+                    secondaryTypographyProps={{ component: 'span' }}
+                  />
                   )}
                 </Box>
-              </ListItem>
+              </ListItemButton>
             ))}
           </List>
+
         ) : (
           <Typography variant="body2" sx={{ p: 2 }}>
             No companies registered
